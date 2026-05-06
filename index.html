@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Void Manifest</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #060810;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    #game-wrapper {
+      position: relative;
+      width: 1056px;
+      height: 768px;
+    }
+
+    canvas { display: block; }
+
+    /* ── HUD bar (rendered by Phaser, no DOM needed) ── */
+
+    /* ── Inspection Panel ── */
+    #inspection-panel {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 500px;
+      max-height: 680px;
+      background: #0b1219;
+      border: 1px solid #2a4060;
+      box-shadow: 0 0 40px rgba(0,80,160,0.3), inset 0 0 60px rgba(0,0,0,0.5);
+      color: #8aabcc;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+    }
+
+    #inspection-panel.visible { display: flex; }
+
+    .panel-header {
+      background: #0f1e2e;
+      border-bottom: 1px solid #1e3650;
+      padding: 12px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-title {
+      color: #4488bb;
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    #pod-id-label {
+      color: #ccddee;
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+
+    .panel-body {
+      padding: 16px 18px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .section-title {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: #446688;
+      text-transform: uppercase;
+      border-bottom: 1px solid #1a2e40;
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+      margin-top: 4px;
+    }
+
+    .properties-section { margin-bottom: 18px; }
+
+    .property-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 0;
+      border-bottom: 1px solid #0e1a24;
+    }
+
+    .prop-key {
+      color: #556677;
+      font-size: 11px;
+      letter-spacing: 1px;
+    }
+
+    .prop-value {
+      color: #ccddee;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .prop-value.highlight { color: #ffcc44; }
+    .prop-value.pass { color: #44cc88; }
+    .prop-value.fail { color: #cc4444; }
+
+    .rules-section { margin-bottom: 4px; }
+
+    .rule-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 5px 0;
+      border-bottom: 1px solid #0e1a24;
+    }
+
+    .rule-sev {
+      font-size: 10px;
+      color: #888;
+      min-width: 24px;
+      padding-top: 1px;
+    }
+
+    .rule-text {
+      font-size: 11px;
+      color: #7a9ab0;
+      line-height: 1.5;
+    }
+
+    .rule-row.triggered .rule-text { color: #ff8844; }
+    .rule-row.triggered .rule-sev  { color: #ff8844; }
+
+    .panel-footer {
+      border-top: 1px solid #1e3650;
+      padding: 14px 18px;
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 10px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      border: 1px solid;
+      background: transparent;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    #btn-route {
+      color: #44cc88;
+      border-color: #2a6644;
+    }
+    #btn-route:hover { background: #1a3322; }
+
+    #btn-incinerate {
+      color: #cc4444;
+      border-color: #662222;
+    }
+    #btn-incinerate:hover { background: #331111; }
+
+    /* ── Notification toast ── */
+    #toast {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0f1e2e;
+      border: 1px solid #2a4060;
+      color: #8aabcc;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      padding: 8px 20px;
+      letter-spacing: 1px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 200;
+      white-space: nowrap;
+    }
+
+    #toast.show { opacity: 1; }
+    #toast.positive { color: #44cc88; border-color: #2a6644; }
+    #toast.negative { color: #cc4444; border-color: #662222; }
+    #toast.neutral  { color: #8aabcc; border-color: #2a4060; }
+  </style>
+</head>
+<body>
+  <div id="game-wrapper">
+    <div id="inspection-panel">
+      <div class="panel-header">
+        <span class="panel-title">// Cargo Inspection Terminal</span>
+        <span id="pod-id-label">POD-000</span>
+      </div>
+      <div class="panel-body">
+        <div class="properties-section">
+          <div class="section-title">Manifest Data</div>
+          <div class="property-row">
+            <span class="prop-key">DESTINATION</span>
+            <span class="prop-value" id="prop-dest">—</span>
+          </div>
+          <div class="property-row">
+            <span class="prop-key">CONTENT TYPE</span>
+            <span class="prop-value" id="prop-content">—</span>
+          </div>
+          <div class="property-row">
+            <span class="prop-key">WEIGHT CLASS</span>
+            <span class="prop-value" id="prop-weight">—</span>
+          </div>
+          <div class="property-row" id="scan-result-row" style="display:none">
+            <span class="prop-key">AUTO-WEIGHT SCAN</span>
+            <span class="prop-value" id="prop-scan">—</span>
+          </div>
+        </div>
+        <div class="rules-section">
+          <div class="section-title">Current Cargo Regulations</div>
+          <div id="rules-list"></div>
+        </div>
+      </div>
+      <div class="panel-footer">
+        <button id="btn-route" class="btn">Route to Destination</button>
+        <button id="btn-incinerate" class="btn">Incinerate</button>
+      </div>
+    </div>
+    <div id="toast"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
