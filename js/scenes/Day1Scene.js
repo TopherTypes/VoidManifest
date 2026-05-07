@@ -214,7 +214,8 @@ export class Day1Scene extends Phaser.Scene {
 
     if (carried) {
       // Check table
-      if (!this._table.hasPod() && player.isNear(this._table.x, this._table.y)) {
+      const tip = this._table.interactPoint();
+      if (!this._table.hasPod() && player.isNear(tip.x, tip.y)) {
         hint = '[E] Place pod on inspection table';
       }
       // Check scanner
@@ -241,7 +242,8 @@ export class Day1Scene extends Phaser.Scene {
       if (!hint) hint = 'WASD / Arrow keys to move — carry pod to inspection table';
     } else {
       // Check table pod pick-up
-      if (this._table.hasPod() && player.isNear(this._table.x, this._table.y)) {
+      const tip = this._table.interactPoint();
+      if (this._table.hasPod() && player.isNear(tip.x, tip.y)) {
         hint = '[E] Pick up pod from table';
       } else {
         // Check nearby floor pod
@@ -299,7 +301,8 @@ export class Day1Scene extends Phaser.Scene {
 
   _interactCarrying(player, pod) {
     // 1. Inspection table (place pod)
-    if (!this._table.hasPod() && player.isNear(this._table.x, this._table.y)) {
+    const tip = this._table.interactPoint();
+    if (!this._table.hasPod() && player.isNear(tip.x, tip.y)) {
       player.putDown();
       this._table.placePod(pod);
       this._openInspectionPanel(pod);
@@ -327,7 +330,8 @@ export class Day1Scene extends Phaser.Scene {
 
   _interactEmpty(player) {
     // 1. Pick up from inspection table
-    if (this._table.hasPod() && player.isNear(this._table.x, this._table.y)) {
+    const tip = this._table.interactPoint();
+    if (this._table.hasPod() && player.isNear(tip.x, tip.y)) {
       const pod = this._table.removePod();
       player.pickUp(pod);
       return;
