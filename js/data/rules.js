@@ -24,6 +24,13 @@ export const SCAN_SIGNATURES = {
   ELECTRONIC: 'CIRCUIT LATTICE — ELECTROMAGNETIC INTERFERENCE READING',
 };
 
+// ── Weight class bounds (kg, gross shipping weight including container) ────────
+export const WEIGHT_BOUNDS = {
+  LIGHT:  { min: 0,   max: 99,   label: '0 – 99 kg',    note: 'Courier parcels. No hazmat protocols.' },
+  MEDIUM: { min: 100, max: 499,  label: '100 – 499 kg',  note: 'Commercial freight. Standard inspection.' },
+  HEAVY:  { min: 500, max: 2000, label: '500 – 2000 kg', note: 'Industrial cargo. Enhanced scan required.' },
+};
+
 // ── Inspection rules ──────────────────────────────────────────────────────────
 // test(pod) → true means the pod is in VIOLATION of this rule
 export const RULES = [

@@ -1,4 +1,4 @@
-import { WORLD_MAP, TILE, TILE_SIZE, PLANETS, SCAN_SIGNATURES } from '../data/rules.js';
+import { WORLD_MAP, TILE, TILE_SIZE, PLANETS, SCAN_SIGNATURES, WEIGHT_BOUNDS } from '../data/rules.js';
 import { generatePodBatch }  from '../data/pods.js';
 import { Economy }           from '../systems/Economy.js';
 import { Progression }       from '../systems/Progression.js';
@@ -30,6 +30,15 @@ const SPAWN_SLOTS = [
   [1,7],[2,7],[1,9],[2,9],[1,11],[2,11],
   [1,13],[2,13],
 ];
+
+// ── Handbook static data ──────────────────────────────────────────────────────
+const CONTENT_RULES = {
+  ORGANIC:    { desc: 'Plant matter, food, natural fibre goods.',       routing: 'Permitted on all routes. Temperature-sensitive.' },
+  MECHANICAL: { desc: 'Machine parts, tools, structural metal goods.',  routing: 'Standard clearance. Avoid MIRA-3 conservation zone.' },
+  CHEMICAL:   { desc: 'Industrial solvents, reactive compounds.',       routing: 'Hazmat seal required. Restricted on OSKAR-7.' },
+  BIOLOGICAL: { desc: 'Living specimens, organic samples, cultures.',   routing: 'Life-support cert required. Preferred route: DRAKON.' },
+  ELECTRONIC: { desc: 'Circuits, devices, data storage media.',         routing: 'Standard clearance. Restricted near DRAKON signal zone.' },
+};
 
 export class Day1Scene extends Phaser.Scene {
   constructor() { super({ key: 'Day1Scene' }); }
@@ -354,30 +363,475 @@ export class Day1Scene extends Phaser.Scene {
     const btnRoute = document.getElementById('btn-route');
     const btnIncin = document.getElementById('btn-incinerate');
 
-    this._panel               = panel;
-    this._currentInspectPod   = null;
+    this._panel             = panel;
+    this._currentInspectPod = null;
 
     btnRoute.addEventListener('click', () => this._onDecision('route'));
     btnIncin.addEventListener('click', () => this._onDecision('incinerate'));
 
-    // Populate the static planet registry once
-    this._populatePlanetRegistry();
+    // Tab switching
+    panel.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        panel.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        panel.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+      });
+    });
+
+    // Populate static handbook content once
+    this._populateWeightTab();
+    this._populatePlanetsTab();
+    this._populateContentsTab();
   }
 
-  _populatePlanetRegistry() {
-    const regDiv = document.getElementById('planet-registry');
-    regDiv.innerHTML = '';
+  // ── Handbook population ───────────────────────────────────────────────────────
+  _populateWeightTab() {
+    const tab = document.getElementById('tab-weight');
+    const rows = Object.entries(WEIGHT_BOUNDS).map(([cls, b]) =>
+      `<tr>
+        <td><span class="weight-class-chip">${cls}</span></td>
+        <td>${b.label}</td>
+        <td>${b.note}</td>
+      </tr>`
+    ).join('');
+    tab.innerHTML =
+      `<table class="weight-table">
+        <thead><tr><th>CLASS</th><th>RANGE</th><th>NOTES</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="hb-note">
+        All weights are gross shipping weight including container.<br>
+        Declared class must match scanner readout. Discrepancy → incinerate.
+      </div>`;
+  }
+
+  _populatePlanetsTab() {
+    const tab = document.getElementById('tab-planets');
+    tab.innerHTML = '';
+
+    const PLANET_NOTES = {
+      'VERATH-IV': 'Central hub. Accepts all standard cargo.',
+      'OSKAR-7':   'Research station. No hazardous chemicals.',
+      'MIRA-3':    'Conservation world. Restricted mechanical imports.',
+      'DRAKON':    'Industrial colony. Signal blackout for electronics.',
+    };
+
     for (const planet of PLANETS.filter(p => p.flag)) {
       const row = document.createElement('div');
-      row.className = 'registry-row';
-      row.innerHTML =
-        `<span class="reg-flag" style="color:${planet.flagColor}">${planet.flag}</span>` +
-        `<span class="reg-code">${planet.id}</span>` +
-        `<span class="reg-name">${planet.label}</span>`;
-      regDiv.appendChild(row);
+      row.className = 'hb-planet-row';
+
+      const flagSlot = document.createElement('div');
+      flagSlot.className = 'hb-flag-slot';
+      const flagCanvas = document.createElement('canvas');
+      flagCanvas.width  = 72;
+      flagCanvas.height = 48;
+      this._drawPlanetFlag(flagCanvas, planet);
+      flagSlot.appendChild(flagCanvas);
+
+      const info = document.createElement('div');
+      info.className = 'hb-planet-info';
+      info.innerHTML =
+        `<div class="hb-planet-id" style="color:${planet.flagColor}">${planet.id}</div>` +
+        `<div class="hb-planet-name">${planet.label}</div>` +
+        `<div class="hb-planet-note">${PLANET_NOTES[planet.id] ?? ''}</div>`;
+
+      row.appendChild(flagSlot);
+      row.appendChild(info);
+      tab.appendChild(row);
     }
   }
 
+  _populateContentsTab() {
+    const tab = document.getElementById('tab-contents');
+    tab.innerHTML = Object.entries(CONTENT_RULES).map(([type, rule]) =>
+      `<div class="content-entry">
+        <div class="content-type-label">${type}</div>
+        <div class="content-desc">${rule.desc}</div>
+        <div class="content-routing">${rule.routing}</div>
+      </div>`
+    ).join('');
+  }
+
+  // ── Planet flag canvas ────────────────────────────────────────────────────────
+  _drawPlanetFlag(canvas, planet) {
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+
+    // Unpack planet hex colors
+    const bg   = planet.color;
+    const bdr  = planet.borderColor;
+    const bgR  = Math.min(((bg >> 16) & 0xff) * 3 + 8, 55);
+    const bgG  = Math.min(((bg >> 8)  & 0xff) * 3 + 8, 55);
+    const bgB  = Math.min(( bg        & 0xff) * 3 + 8, 55);
+    const bdrR =  (bdr >> 16) & 0xff;
+    const bdrG =  (bdr >> 8)  & 0xff;
+    const bdrB =   bdr        & 0xff;
+
+    // Background
+    ctx.fillStyle = `rgb(${bgR},${bgG},${bgB})`;
+    ctx.fillRect(0, 0, W, H);
+
+    // Top accent band
+    ctx.fillStyle = `rgba(${bdrR},${bdrG},${bdrB},0.35)`;
+    ctx.fillRect(0, 0, W, Math.ceil(H * 0.28));
+
+    // Subtle scanline texture
+    for (let y = 0; y < H; y += 2) {
+      ctx.fillStyle = 'rgba(0,0,0,0.08)';
+      ctx.fillRect(0, y, W, 1);
+    }
+
+    // Left edge stripe (flag-pole side)
+    ctx.fillStyle = `rgba(${bdrR},${bdrG},${bdrB},0.7)`;
+    ctx.fillRect(0, 0, 3, H);
+
+    // Planet symbol — large, centred, with glow
+    ctx.save();
+    ctx.shadowColor  = planet.flagColor;
+    ctx.shadowBlur   = 10;
+    ctx.fillStyle    = planet.flagColor;
+    ctx.font         = `${Math.floor(H * 0.52)}px Courier New`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(planet.flag, W / 2 + 2, H / 2);
+    ctx.restore();
+
+    // Border
+    ctx.strokeStyle = `rgba(${bdrR},${bdrG},${bdrB},0.65)`;
+    ctx.lineWidth   = 1.5;
+    ctx.strokeRect(0.75, 0.75, W - 1.5, H - 1.5);
+  }
+
+  // ── X-ray canvas ─────────────────────────────────────────────────────────────
+  _seededRand(seed) {
+    let s = (seed ^ 0xdeadbeef) >>> 0;
+    return () => {
+      s = Math.imul(1664525, s) + 1013904223 | 0;
+      return (s >>> 0) / 4294967296;
+    };
+  }
+
+  _drawXrayCanvas(canvas, contentType, podId) {
+    const ctx  = canvas.getContext('2d');
+    const W    = canvas.width;
+    const H    = canvas.height;
+    const seed = parseInt(podId.replace('POD-', ''), 10) || 7;
+    const rand = this._seededRand(seed * 31 + 17);
+    const pad  = 16;
+
+    // Background
+    ctx.fillStyle = '#050c07';
+    ctx.fillRect(0, 0, W, H);
+
+    // Scanlines
+    for (let y = 0; y < H; y += 3) {
+      ctx.fillStyle = 'rgba(0,90,25,0.07)';
+      ctx.fillRect(0, y, W, 1);
+    }
+
+    // Pod shell outline
+    ctx.strokeStyle = '#1a4422';
+    ctx.lineWidth   = 1.5;
+    ctx.strokeRect(pad, pad, W - pad * 2, H - pad * 2);
+
+    // Corner bracket marks
+    ctx.strokeStyle = '#2aaa55';
+    ctx.lineWidth   = 1.5;
+    for (const [cx, cy] of [[pad, pad],[W-pad, pad],[pad, H-pad],[W-pad, H-pad]]) {
+      const dx = cx < W / 2 ? 7 : -7;
+      const dy = cy < H / 2 ? 7 : -7;
+      ctx.beginPath();
+      ctx.moveTo(cx - dx, cy);
+      ctx.lineTo(cx, cy);
+      ctx.lineTo(cx, cy - dy);
+      ctx.stroke();
+    }
+
+    // Clip to interior before drawing content
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(pad + 2, pad + 18, W - pad * 2 - 4, H - pad * 2 - 22);
+    ctx.clip();
+    ctx.shadowColor = '#33ff77';
+    ctx.shadowBlur  = 5;
+
+    this._drawXrayContent(ctx, W, H, pad, contentType, rand);
+
+    ctx.restore();
+
+    // Corner labels
+    ctx.fillStyle = '#1a4422';
+    ctx.font      = '8px Courier New';
+    ctx.textAlign = 'left';
+    ctx.fillText('X-RAY', pad + 4, pad + 13);
+    ctx.textAlign = 'right';
+    ctx.fillText(contentType, W - pad - 4, pad + 13);
+    ctx.textAlign = 'left';
+
+    // Bottom intensity bar
+    const bar = ctx.createLinearGradient(pad + 4, 0, W - pad - 4, 0);
+    bar.addColorStop(0,   'rgba(0,0,0,0)');
+    bar.addColorStop(0.5, 'rgba(0,200,80,0.18)');
+    bar.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle = bar;
+    ctx.fillRect(pad + 4, H - pad - 6, W - pad * 2 - 8, 4);
+  }
+
+  _drawXrayContent(ctx, W, H, pad, contentType, rand) {
+    const ix = pad + 4, iy = pad + 18;
+    const iw = W - pad * 2 - 8, ih = H - pad * 2 - 22;
+    const cx = ix + iw / 2,    cy = iy + ih / 2;
+
+    const g  = (a) => `rgba(68,255,136,${a})`;
+    const dg = (a) => `rgba(30,180,80,${a})`;
+
+    switch (contentType) {
+
+      case 'ORGANIC': {
+        // Amorphous blobs with tendril connections
+        for (let i = 0; i < 6; i++) {
+          const bx = ix + 12 + rand() * (iw - 24);
+          const by = iy + 8  + rand() * (ih - 16);
+          const r  = 10 + rand() * 22;
+          ctx.beginPath();
+          const steps = 8;
+          for (let j = 0; j <= steps; j++) {
+            const a      = (j / steps) * Math.PI * 2;
+            const jitter = 0.55 + rand() * 0.9;
+            const px     = bx + Math.cos(a) * r * jitter;
+            const py     = by + Math.sin(a) * r * jitter;
+            j === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.strokeStyle = g(0.45 + rand() * 0.45);
+          ctx.lineWidth   = 0.8 + rand() * 0.5;
+          ctx.stroke();
+          ctx.fillStyle = dg(0.12 + rand() * 0.18);
+          ctx.fill();
+        }
+        // Tendrils
+        for (let i = 0; i < 6; i++) {
+          ctx.beginPath();
+          const ax = ix + 8 + rand() * (iw - 16);
+          const ay = iy + 8 + rand() * (ih - 16);
+          const bx = ix + 8 + rand() * (iw - 16);
+          const by = iy + 8 + rand() * (ih - 16);
+          ctx.moveTo(ax, ay);
+          ctx.quadraticCurveTo(
+            ix + rand() * iw, iy + rand() * ih,
+            bx, by
+          );
+          ctx.strokeStyle = g(0.15 + rand() * 0.2);
+          ctx.lineWidth   = 0.5 + rand() * 0.4;
+          ctx.stroke();
+        }
+        break;
+      }
+
+      case 'MECHANICAL': {
+        // Central chassis block
+        const mw = 56 + rand() * 28, mh = 34 + rand() * 18;
+        const mx = cx - mw / 2,      my = cy - mh / 2;
+        ctx.strokeStyle = g(0.9);
+        ctx.lineWidth   = 1.5;
+        ctx.strokeRect(mx, my, mw, mh);
+        ctx.fillStyle = dg(0.12);
+        ctx.fillRect(mx, my, mw, mh);
+        // Internal layer lines
+        for (let i = 1; i < 4; i++) {
+          ctx.beginPath();
+          ctx.moveTo(mx,      my + (mh / 4) * i);
+          ctx.lineTo(mx + mw, my + (mh / 4) * i);
+          ctx.strokeStyle = g(0.2);
+          ctx.lineWidth   = 0.5;
+          ctx.stroke();
+        }
+        // Attached sub-components
+        for (let i = 0; i < 5; i++) {
+          const angle = (i / 5) * Math.PI * 2 + rand() * 0.6;
+          const dist  = 30 + rand() * 22;
+          const cw    = 10 + rand() * 18;
+          const ch    = 8  + rand() * 12;
+          const compX = cx + Math.cos(angle) * dist - cw / 2;
+          const compY = cy + Math.sin(angle) * dist - ch / 2;
+          ctx.strokeStyle = g(0.6 + rand() * 0.35);
+          ctx.lineWidth   = 1;
+          ctx.strokeRect(compX, compY, cw, ch);
+          ctx.fillStyle = dg(0.1);
+          ctx.fillRect(compX, compY, cw, ch);
+          // Connecting arm to chassis
+          ctx.beginPath();
+          ctx.moveTo(compX + cw / 2, compY + ch / 2);
+          ctx.lineTo(cx, cy);
+          ctx.strokeStyle = g(0.28);
+          ctx.lineWidth   = 0.7;
+          ctx.stroke();
+          // Joint dot
+          ctx.beginPath();
+          ctx.arc(compX + cw / 2, compY + ch / 2, 2.5, 0, Math.PI * 2);
+          ctx.fillStyle = g(0.85);
+          ctx.fill();
+        }
+        break;
+      }
+
+      case 'CHEMICAL': {
+        // Fluid containers of varying sizes
+        for (let i = 0; i < 7; i++) {
+          const r  = 8 + rand() * 20;
+          const bx = ix + r + 6 + rand() * (iw - r * 2 - 12);
+          const by = iy + r + 4 + rand() * (ih - r * 2 - 8);
+          ctx.beginPath();
+          ctx.arc(bx, by, r, 0, Math.PI * 2);
+          ctx.strokeStyle = g(0.65 + rand() * 0.35);
+          ctx.lineWidth   = 1.2;
+          ctx.stroke();
+          // Radial gradient fill (bright centre)
+          const grd = ctx.createRadialGradient(bx, by, 0, bx, by, r);
+          grd.addColorStop(0, 'rgba(44,255,100,0.25)');
+          grd.addColorStop(1, 'rgba(44,255,100,0.03)');
+          ctx.fillStyle = grd;
+          ctx.beginPath();
+          ctx.arc(bx, by, r, 0, Math.PI * 2);
+          ctx.fill();
+          // Pressure ring on larger vessels
+          if (r > 14) {
+            ctx.beginPath();
+            ctx.arc(bx, by, r * 0.72, 0, Math.PI * 2);
+            ctx.strokeStyle = g(0.25);
+            ctx.lineWidth   = 0.5;
+            ctx.stroke();
+          }
+        }
+        // Dispersed particulate
+        for (let i = 0; i < 22; i++) {
+          ctx.beginPath();
+          ctx.arc(
+            ix + 4 + rand() * (iw - 8),
+            iy + 4 + rand() * (ih - 8),
+            1 + rand(),
+            0, Math.PI * 2
+          );
+          ctx.fillStyle = g(0.15 + rand() * 0.35);
+          ctx.fill();
+        }
+        break;
+      }
+
+      case 'BIOLOGICAL': {
+        // Cellular pattern — overlapping ellipses with nuclei
+        const cells = [];
+        for (let i = 0; i < 8; i++) {
+          cells.push({
+            x:  ix + 14 + rand() * (iw - 28),
+            y:  iy + 8  + rand() * (ih - 16),
+            rx: 14 + rand() * 16,
+            ry: 9  + rand() * 13,
+            a:  rand() * Math.PI,
+          });
+        }
+        for (const c of cells) {
+          ctx.save();
+          ctx.translate(c.x, c.y);
+          ctx.rotate(c.a);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, c.rx, c.ry, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = g(0.45 + rand() * 0.3);
+          ctx.lineWidth   = 0.9;
+          ctx.stroke();
+          ctx.fillStyle = dg(0.10 + rand() * 0.12);
+          ctx.fill();
+          ctx.restore();
+          // Nucleus
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, 2.5 + rand() * 3.5, 0, Math.PI * 2);
+          ctx.fillStyle = g(0.55 + rand() * 0.35);
+          ctx.fill();
+        }
+        // Membrane / vascular lines between cells
+        for (let i = 0; i + 1 < cells.length; i++) {
+          ctx.beginPath();
+          ctx.moveTo(cells[i].x, cells[i].y);
+          ctx.lineTo(cells[i + 1].x, cells[i + 1].y);
+          ctx.strokeStyle = g(0.12 + rand() * 0.1);
+          ctx.lineWidth   = 0.5;
+          ctx.stroke();
+        }
+        break;
+      }
+
+      case 'ELECTRONIC': {
+        // PCB traces, IC chips, via holes
+        const gx = ix + 6, gy = iy + 4;
+        const gw = iw - 12, gh = ih - 8;
+        const ROWS_G = 4, COLS_G = 5;
+
+        // Horizontal traces
+        for (let r = 0; r <= ROWS_G; r++) {
+          if (rand() < 0.25) continue;
+          const ty = gy + (r / ROWS_G) * gh;
+          ctx.beginPath();
+          ctx.moveTo(gx,      ty);
+          ctx.lineTo(gx + gw, ty);
+          ctx.strokeStyle = g(0.25 + rand() * 0.2);
+          ctx.lineWidth   = 0.7 + rand() * 0.5;
+          ctx.stroke();
+        }
+        // Vertical traces
+        for (let c = 0; c <= COLS_G; c++) {
+          if (rand() < 0.25) continue;
+          const tx = gx + (c / COLS_G) * gw;
+          ctx.beginPath();
+          ctx.moveTo(tx, gy);
+          ctx.lineTo(tx, gy + gh);
+          ctx.strokeStyle = g(0.25 + rand() * 0.2);
+          ctx.lineWidth   = 0.7 + rand() * 0.5;
+          ctx.stroke();
+        }
+        // IC chips at grid intersections
+        for (let r = 0; r <= ROWS_G; r++) {
+          for (let c = 0; c <= COLS_G; c++) {
+            if (rand() < 0.58) continue;
+            const tx = gx + (c / COLS_G) * gw;
+            const ty = gy + (r / ROWS_G) * gh;
+            const cw = 13 + rand() * 15;
+            const ch = 9  + rand() * 10;
+            ctx.strokeStyle = g(0.65 + rand() * 0.35);
+            ctx.lineWidth   = 1;
+            ctx.strokeRect(tx - cw / 2, ty - ch / 2, cw, ch);
+            ctx.fillStyle = dg(0.14);
+            ctx.fillRect(tx - cw / 2, ty - ch / 2, cw, ch);
+            // Internal pin lines
+            for (let p = 1; p < 3; p++) {
+              ctx.beginPath();
+              ctx.moveTo(tx - cw / 2, ty - ch / 2 + (p / 3) * ch);
+              ctx.lineTo(tx + cw / 2, ty - ch / 2 + (p / 3) * ch);
+              ctx.strokeStyle = g(0.18);
+              ctx.lineWidth   = 0.4;
+              ctx.stroke();
+            }
+          }
+        }
+        // Via holes
+        for (let i = 0; i < 14; i++) {
+          const vx = gx + 4 + rand() * (gw - 8);
+          const vy = gy + 4 + rand() * (gh - 8);
+          ctx.beginPath();
+          ctx.arc(vx, vy, 2 + rand() * 1.5, 0, Math.PI * 2);
+          ctx.fillStyle = g(0.6 + rand() * 0.4);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(vx, vy, 0.9, 0, Math.PI * 2);
+          ctx.fillStyle = '#050c07';
+          ctx.fill();
+        }
+        break;
+      }
+    }
+  }
+
+  // ── Open / close panel ────────────────────────────────────────────────────────
   _openInspectionPanel(pod) {
     this._paused = true;
     this._currentInspectPod = pod;
@@ -386,34 +840,48 @@ export class Day1Scene extends Phaser.Scene {
     const violations = evaluatePod(pod.podData);
     pod.setInspectedResult(violations);
 
-    // Manifest data — shown as-is, no highlighting of correct/incorrect
-    document.getElementById('pod-id-label').textContent      = pod.podData.id;
-    document.getElementById('prop-dest').textContent         = pod.podData.destinationCode;
-    document.getElementById('prop-flag').textContent         = pod.podData.destinationFlag || '—';
-    document.getElementById('prop-content').textContent      = pod.podData.contentCategory;
-    document.getElementById('prop-weight').textContent       = pod.podData.weightClass;
+    // Declared manifest — shown as declared, no violation colouring
+    document.getElementById('pod-id-label').textContent = pod.podData.id;
+    document.getElementById('prop-weight').textContent  = pod.podData.weightClass;
+    document.getElementById('prop-content').textContent = pod.podData.contentCategory;
+    document.getElementById('prop-dest').textContent    = pod.podData.destinationCode;
+    document.getElementById('prop-flag').textContent    = pod.podData.destinationFlag || '—';
 
-    // Reset all prop-value classes — no violation coloring
-    for (const id of ['prop-dest', 'prop-flag', 'prop-content', 'prop-weight']) {
+    for (const id of ['prop-weight', 'prop-content', 'prop-dest', 'prop-flag']) {
       document.getElementById(id).className = 'prop-value';
     }
 
-    // X-ray scan output — derived from actual contents, not declared category
-    const scanText = SCAN_SIGNATURES[pod.podData.actualContent] || 'SCAN ERROR — NO SIGNATURE RETURNED';
-    document.getElementById('prop-scan-output').textContent = scanText;
-
-    // Weight scanner row (shown only if pod passed through scanner)
+    // Weight scan readout — show measured kg if pod passed through scanner
     const weightScanRow = document.getElementById('weight-scan-row');
     if (pod.weightScanned) {
+      const bounds  = WEIGHT_BOUNDS[pod.podData.weightClass];
+      const frac    = ((parseInt(pod.podData.id.replace('POD-', ''), 10) * 2654435761) >>> 0) / 4294967296;
+      const measKg  = bounds
+        ? Math.floor(bounds.min + frac * (bounds.max - bounds.min))
+        : '—';
+      document.getElementById('prop-weight-scan').textContent =
+        `${measKg} kg (${pod.podData.weightClass})`;
       weightScanRow.style.display = '';
-      document.getElementById('prop-weight-scan').textContent = `${pod.podData.weightClass} — confirmed`;
-      document.getElementById('prop-weight-scan').className = 'prop-value';
     } else {
       weightScanRow.style.display = 'none';
     }
 
-    // Route button shows declared destination
+    // X-ray canvas — drawn from actual content (not declared)
+    const xrayCanvas = document.getElementById('xray-canvas');
+    this._drawXrayCanvas(xrayCanvas, pod.podData.actualContent, pod.podData.id);
+
+    // Signature text beneath canvas
+    document.getElementById('prop-scan-output').textContent =
+      SCAN_SIGNATURES[pod.podData.actualContent] ?? 'SCAN ERROR — NO SIGNATURE RETURNED';
+
+    // Route button label
     document.getElementById('btn-route').textContent = `Route to ${pod.podData.destinationCode}`;
+
+    // Always open on Weight tab
+    this._panel.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    this._panel.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    this._panel.querySelector('[data-tab="weight"]').classList.add('active');
+    document.getElementById('tab-weight').classList.add('active');
 
     this._panel.classList.add('visible');
   }
