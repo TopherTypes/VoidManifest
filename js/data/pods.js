@@ -94,3 +94,23 @@ export function generatePodBatch(count) {
 
   return pods;
 }
+
+// Stage 1: Single valid pod for inspection tutorial
+export function generateStage1() {
+  return [generateValid()];
+}
+
+// Stage 2: Single invalid pod to teach denial
+export function generateStage2() {
+  return [generateViolating()];
+}
+
+// Stage 3: Three valid pods to same destination, teaching batch handling
+export function generateStage3() {
+  const dest = pick(VALID_DESTINATIONS);
+  return [
+    { ...makePodBase(), destinationCode: dest, destinationFlag: getFlag(dest) },
+    { ...makePodBase(), destinationCode: dest, destinationFlag: getFlag(dest) },
+    { ...makePodBase(), destinationCode: dest, destinationFlag: getFlag(dest) },
+  ];
+}

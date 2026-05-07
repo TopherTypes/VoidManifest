@@ -5,7 +5,7 @@ export const TECHNOLOGY = [
     description: 'A physical scanning unit placed in the cargo bay. Load a pod into the input face — it ejects to the PASS side if weight is compliant, FAIL side if not.',
     unlockedOnDay: 1,
     trigger: 'pods_processed_pct',
-    threshold: 0.75,
+    threshold: 0.42,
     effect: 'PLACE_WEIGHT_SCANNER',
   },
   {

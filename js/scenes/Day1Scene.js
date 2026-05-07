@@ -1,5 +1,5 @@
 import { TILE, TILE_SIZE, PLANETS, SCAN_SIGNATURES, WEIGHT_BOUNDS, WORLD_MAP } from '../data/rules.js';
-import { generatePodBatch }  from '../data/pods.js';
+import { generatePodBatch, generateStage1, generateStage2, generateStage3 }  from '../data/pods.js';
 import { Economy }           from '../systems/Economy.js';
 import { Progression }       from '../systems/Progression.js';
 import { evaluatePod }       from '../systems/InspectionEngine.js';
@@ -11,7 +11,7 @@ import { Bay }               from '../entities/Bay.js';
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 const COLS = 22, ROWS = 16;
-const TOTAL_PODS   = 12;
+const TOTAL_PODS   = 1 + 1 + 3 + 7; // Stages: 1 valid + 1 invalid + 3 batch + 7 free
 const TABLE_TX = 9,  TABLE_TY = 6;
 const SCANNER_TX = 4, SCANNER_TY = 6;
 
@@ -56,6 +56,8 @@ export class Day1Scene extends Phaser.Scene {
     this._pods        = [];
     this._processedCount = 0;
     this._solidExtra  = [];
+    this._walkthroughStage = 1;
+    this._stagePodsSubmitted = 0;
 
     this.isSolid = this._isSolid.bind(this);
     this.addSolidMachineTiles = (tiles) => {
@@ -182,12 +184,37 @@ export class Day1Scene extends Phaser.Scene {
 
   // ── Pod spawning ─────────────────────────────────────────────────────────────
   _spawnPods() {
-    const data = generatePodBatch(TOTAL_PODS);
-    for (let i = 0; i < data.length; i++) {
+    this._spawnPodsForStage(1);
+  }
+
+  _spawnPodsForStage(stage) {
+    let stageData = [];
+    switch (stage) {
+      case 1:
+        stageData = generateStage1();
+        this._showToast('Stage 1: Inspect this pod and make a decision', 'neutral', 3000);
+        break;
+      case 2:
+        stageData = generateStage2();
+        this._showToast('Stage 2: This pod has a problem — learn to deny it', 'neutral', 3000);
+        break;
+      case 3:
+        stageData = generateStage3();
+        this._showToast('Stage 3: Three packages to the same destination — batch them together', 'neutral', 3000);
+        break;
+      case 4:
+        stageData = generatePodBatch(7);
+        this._showToast('Stage 4: Continue with mixed packages', 'neutral', 3000);
+        break;
+      default:
+        return;
+    }
+
+    for (let i = 0; i < stageData.length; i++) {
       const slot = SPAWN_SLOTS[i % SPAWN_SLOTS.length];
       const px   = slot[0] * TILE_SIZE + TILE_SIZE / 2;
       const py   = slot[1] * TILE_SIZE + TILE_SIZE / 2;
-      const pod  = new CargoPod(this, px, py, data[i]);
+      const pod  = new CargoPod(this, px, py, stageData[i]);
       this._pods.push(pod);
     }
   }
@@ -420,11 +447,27 @@ export class Day1Scene extends Phaser.Scene {
       this._processedCount++;
     }
 
+    this._stagePodsSubmitted += parcels.length;
+    this._checkWalkthroughProgression();
     this._checkProgression();
     this._checkDayEnd();
 
     const summary = `SUBMISSION REPORT: ${correct} approved, ${incorrect} denied | ${reasons.join(' | ')}`;
     this._showToast(summary, 'neutral', 4000);
+  }
+
+  _checkWalkthroughProgression() {
+    const stageRequirements = { 1: 1, 2: 1, 3: 3 };
+    const required = stageRequirements[this._walkthroughStage];
+
+    if (required && this._stagePodsSubmitted >= required) {
+      this._walkthroughStage++;
+      this._stagePodsSubmitted = 0;
+
+      if (this._walkthroughStage <= 4) {
+        this.time.delayedCall(1000, () => this._spawnPodsForStage(this._walkthroughStage));
+      }
+    }
   }
 
   // ── Inspection panel (HTML overlay) ─────────────────────────────────────────
