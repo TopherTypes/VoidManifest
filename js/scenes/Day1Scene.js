@@ -1,4 +1,4 @@
-import { WORLD_MAP, TILE, TILE_SIZE, PLANETS, SCAN_SIGNATURES, WEIGHT_BOUNDS } from '../data/rules.js';
+import { TILE, TILE_SIZE, PLANETS, SCAN_SIGNATURES, WEIGHT_BOUNDS } from '../data/rules.js';
 import { generatePodBatch }  from '../data/pods.js';
 import { Economy }           from '../systems/Economy.js';
 import { Progression }       from '../systems/Progression.js';
