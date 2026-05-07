@@ -12,7 +12,7 @@ export class Bay extends Phaser.GameObjects.Container {
     this.tileX   = tileX;
     this.tileY   = tileY;
     this.bayData = bayData;
-    this.count   = 0; // deposited pods
+    this.count   = 0;
 
     this._build();
     scene.add.existing(this);
@@ -27,23 +27,34 @@ export class Bay extends Phaser.GameObjects.Container {
     this._bg = this.scene.add.rectangle(0, 0, PW - 2, PH - 2, c)
       .setStrokeStyle(1.5, bc);
 
-    // Bay ID (large)
-    this._idLabel = this.scene.add.text(0, -10, this.bayData.id, {
-      fontSize: '13px', fontFamily: 'Courier New', color: '#cce0ff',
+    // Flag symbol (large, left anchor)
+    if (this.bayData.flag) {
+      this._flagLabel = this.scene.add.text(-PW / 2 + 14, 0, this.bayData.flag, {
+        fontSize: '18px', fontFamily: 'Courier New',
+        color: this.bayData.flagColor || '#cce0ff',
+      }).setOrigin(0.5);
+    }
+
+    // Planet ID
+    const labelOffsetX = this.bayData.flag ? 10 : 0;
+    this._idLabel = this.scene.add.text(labelOffsetX, -10, this.bayData.id, {
+      fontSize: '11px', fontFamily: 'Courier New', color: '#cce0ff',
       fontStyle: 'bold', letterSpacing: 1,
     }).setOrigin(0.5);
 
-    // Bay sub-label (small)
-    this._subLabel = this.scene.add.text(0, 8, this.bayData.label, {
-      fontSize: '7px', fontFamily: 'Courier New', color: '#5577aa', letterSpacing: 1,
+    // Full planet name (sub-label)
+    this._subLabel = this.scene.add.text(labelOffsetX, 6, this.bayData.label, {
+      fontSize: '8px', fontFamily: 'Courier New', color: '#5577aa', letterSpacing: 1,
     }).setOrigin(0.5);
 
-    // Count indicator
-    this._countText = this.scene.add.text(PW/2 - 8, -PH/2 + 6, '0', {
+    // Deposit count indicator
+    this._countText = this.scene.add.text(PW / 2 - 8, -PH / 2 + 6, '0', {
       fontSize: '9px', fontFamily: 'Courier New', color: '#446688',
     }).setOrigin(1, 0);
 
-    this.add([this._bg, this._idLabel, this._subLabel, this._countText]);
+    const items = [this._bg, this._idLabel, this._subLabel, this._countText];
+    if (this._flagLabel) items.push(this._flagLabel);
+    this.add(items);
     this.setSize(PW, PH);
   }
 
@@ -63,7 +74,6 @@ export class Bay extends Phaser.GameObjects.Container {
     pod.setVisible(false);
     pod.podState = 'deposited';
 
-    // Brief flash
     const origColor = this.bayData.borderColor;
     this._bg.setStrokeStyle(2, 0xffffff);
     this.scene.time.delayedCall(200, () => this._bg.setStrokeStyle(1.5, origColor));

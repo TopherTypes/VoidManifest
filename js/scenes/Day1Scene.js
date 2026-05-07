@@ -1,4 +1,4 @@
-import { WORLD_MAP, TILE, TILE_SIZE, BAYS, RULES } from '../data/rules.js';
+import { WORLD_MAP, TILE, TILE_SIZE, PLANETS, SCAN_SIGNATURES } from '../data/rules.js';
 import { generatePodBatch }  from '../data/pods.js';
 import { Economy }           from '../systems/Economy.js';
 import { Progression }       from '../systems/Progression.js';
@@ -12,16 +12,16 @@ import { Bay }               from '../entities/Bay.js';
 // ── Layout constants ──────────────────────────────────────────────────────────
 const COLS = 22, ROWS = 16;
 const TOTAL_PODS   = 12;
-const TABLE_TX = 9,  TABLE_TY = 6;  // inspection table tile position
-const SCANNER_TX = 4, SCANNER_TY = 6; // weight scanner tile position
+const TABLE_TX = 9,  TABLE_TY = 6;
+const SCANNER_TX = 4, SCANNER_TY = 6;
 
-// Bay layout: [bayId, tileX, tileY]
+// Bay layout: [planetId, tileX, tileY]
 const BAY_LAYOUT = [
-  ['STO-A',  18, 1],
-  ['STO-B',  18, 4],
-  ['CRYO-1', 18, 7],
-  ['HAZ-1',  18, 10],
-  ['INCIN',  18, 13],
+  ['VERATH-IV', 18, 1],
+  ['OSKAR-7',   18, 4],
+  ['MIRA-3',    18, 7],
+  ['DRAKON',    18, 10],
+  ['INCIN',     18, 13],
 ];
 
 // Pod spawn grid (column, row) within delivery zone
@@ -41,9 +41,8 @@ export class Day1Scene extends Phaser.Scene {
     this._paused      = false;
     this._pods        = [];
     this._processedCount = 0;
-    this._solidExtra  = []; // extra solid tile coords from machines
+    this._solidExtra  = [];
 
-    // Bind isSolid so entities can call it as scene.isSolid(...)
     this.isSolid = this._isSolid.bind(this);
     this.addSolidMachineTiles = (tiles) => {
       this._solidExtra.push(...tiles);
@@ -58,7 +57,7 @@ export class Day1Scene extends Phaser.Scene {
     this._wireProgression();
     this._wireInspectionPanel();
 
-    this._showToast('Day 1 — Inspect and route incoming cargo', 'neutral', 3500);
+    this._showToast('Day 1 — Inspect each pod and route it to the correct planet', 'neutral', 4000);
   }
 
   // ── update ───────────────────────────────────────────────────────────────────
@@ -100,7 +99,6 @@ export class Day1Scene extends Phaser.Scene {
           case TILE.DELIVERY:
             g.fillStyle(0x0f1a10, 1);
             g.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-            // Hazard stripe hint
             g.fillStyle(0x1a2a1a, 0.6);
             g.fillRect(x + 2, y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
             g.lineStyle(0.5, 0x1e3a1e, 1);
@@ -109,7 +107,6 @@ export class Day1Scene extends Phaser.Scene {
 
           case TILE.BAY:
           case TILE.INCIN:
-            // Bays are drawn by the Bay entity, just lay down dark floor
             g.fillStyle(0x080c10, 1);
             g.fillRect(x, y, TILE_SIZE, TILE_SIZE);
             break;
@@ -135,8 +132,8 @@ export class Day1Scene extends Phaser.Scene {
   _createBays() {
     this._bays = [];
     for (const [id, tx, ty] of BAY_LAYOUT) {
-      const bayData = BAYS.find(b => b.id === id);
-      const bay     = new Bay(this, tx, ty, bayData);
+      const planetData = PLANETS.find(p => p.id === id);
+      const bay        = new Bay(this, tx, ty, planetData);
       this._bays.push(bay);
     }
   }
@@ -146,10 +143,7 @@ export class Day1Scene extends Phaser.Scene {
     this._table   = new InspectionTable(this, TABLE_TX, TABLE_TY);
     this._scanner = new WeightScanner(this, SCANNER_TX, SCANNER_TY);
 
-    // Inspection table is always present — register its solid tiles
     this.addSolidMachineTiles(this._table.solidTiles);
-
-    // Scanner is hidden until unlocked — solid tiles added in activate()
   }
 
   // ── Pod spawning ─────────────────────────────────────────────────────────────
@@ -173,29 +167,26 @@ export class Day1Scene extends Phaser.Scene {
 
   // ── HUD ──────────────────────────────────────────────────────────────────────
   _createHUD() {
-    // Overlay graphics (always on top, depth 20)
     this._hudCreditsText = this.add.text(12, 8, '', {
-      fontSize: '13px', fontFamily: 'Courier New', color: '#66aaff',
+      fontSize: '14px', fontFamily: 'Courier New', color: '#66aaff',
     }).setDepth(20).setScrollFactor(0);
 
     this._hudProgressText = this.add.text(1044, 8, '', {
-      fontSize: '13px', fontFamily: 'Courier New', color: '#668888',
+      fontSize: '14px', fontFamily: 'Courier New', color: '#668888',
     }).setDepth(20).setScrollFactor(0).setOrigin(1, 0);
 
     this._hudDayText = this.add.text(528, 8, 'DAY 1', {
-      fontSize: '13px', fontFamily: 'Courier New', color: '#334455',
+      fontSize: '14px', fontFamily: 'Courier New', color: '#334455',
       letterSpacing: 3,
     }).setDepth(20).setScrollFactor(0).setOrigin(0.5, 0);
 
-    // Interaction prompt
     this._promptText = this.add.text(528, 748, '', {
-      fontSize: '11px', fontFamily: 'Courier New', color: '#446688',
+      fontSize: '14px', fontFamily: 'Courier New', color: '#446688',
       letterSpacing: 1,
     }).setDepth(20).setScrollFactor(0).setOrigin(0.5, 1);
 
-    // Scanner unlock notification area
     this._unlockBanner = this.add.text(528, 40, '', {
-      fontSize: '12px', fontFamily: 'Courier New', color: '#44cc88',
+      fontSize: '14px', fontFamily: 'Courier New', color: '#44cc88',
       backgroundColor: '#0d1f0d', padding: { x: 10, y: 6 }, letterSpacing: 1,
     }).setDepth(21).setScrollFactor(0).setOrigin(0.5, 0).setAlpha(0);
   }
@@ -213,40 +204,31 @@ export class Day1Scene extends Phaser.Scene {
     let hint = '';
 
     if (carried) {
-      // Check table
       const tip = this._table.interactPoint();
       if (!this._table.hasPod() && player.isNear(tip.x, tip.y)) {
         hint = '[E] Place pod on inspection table';
-      }
-      // Check scanner
-      else if (this._scanner?.visible) {
+      } else if (this._scanner?.visible) {
         const ip = this._scanner.inputPoint();
         if (player.isNear(ip.x, ip.y) && !this._scanner.scanning) {
           hint = '[E] Insert pod into weight scanner';
         }
-      }
-      // Check bays
-      else {
+      } else {
         for (const bay of this._bays) {
           if (bay.playerCanDeposit(player.x, player.y)) {
             const needsDecision = !carried.decision;
-            if (needsDecision) {
-              hint = `[E] Deposit at ${bay.bayData.id} — inspect first!`;
-            } else {
-              hint = `[E] Deposit at ${bay.bayData.id}`;
-            }
+            hint = needsDecision
+              ? `[E] Deposit at ${bay.bayData.id} — inspect first!`
+              : `[E] Deposit at ${bay.bayData.id}`;
             break;
           }
         }
       }
       if (!hint) hint = 'WASD / Arrow keys to move — carry pod to inspection table';
     } else {
-      // Check table pod pick-up
       const tip = this._table.interactPoint();
       if (this._table.hasPod() && player.isNear(tip.x, tip.y)) {
         hint = '[E] Pick up pod from table';
       } else {
-        // Check nearby floor pod
         const near = this._nearestFloorPod(player.x, player.y);
         if (near) hint = `[E] Pick up ${near.podData.id}`;
         else      hint = 'WASD / Arrow keys to move';
@@ -260,7 +242,7 @@ export class Day1Scene extends Phaser.Scene {
   _wireProgression() {
     this._progression.onUnlock('auto-weight-scanner', () => {
       this._scanner.activate();
-      this._showUnlockBanner('UNLOCK: Auto Weight Scanner placed in cargo bay');
+      this._showUnlockBanner('UNLOCK: Weight Scanner placed in cargo bay');
       this._showToast('Weight scanner activated — load pods from the left face', 'neutral', 4000);
     });
   }
@@ -291,7 +273,6 @@ export class Day1Scene extends Phaser.Scene {
     if (this._paused) return;
 
     const carried = player.carriedPod;
-
     if (carried) {
       this._interactCarrying(player, carried);
     } else {
@@ -300,7 +281,7 @@ export class Day1Scene extends Phaser.Scene {
   }
 
   _interactCarrying(player, pod) {
-    // 1. Inspection table (place pod)
+    // 1. Inspection table
     const tip = this._table.interactPoint();
     if (!this._table.hasPod() && player.isNear(tip.x, tip.y)) {
       player.putDown();
@@ -345,7 +326,6 @@ export class Day1Scene extends Phaser.Scene {
   }
 
   _depositAtBay(player, pod, bay) {
-    // Force inspection if not yet done (just evaluate silently — player still loses credits)
     if (!pod.inspected) {
       const violations = evaluatePod(pod.podData);
       pod.setInspectedResult(violations);
@@ -374,65 +354,66 @@ export class Day1Scene extends Phaser.Scene {
     const btnRoute = document.getElementById('btn-route');
     const btnIncin = document.getElementById('btn-incinerate');
 
-    this._panel      = panel;
-    this._currentInspectPod = null;
+    this._panel               = panel;
+    this._currentInspectPod   = null;
 
     btnRoute.addEventListener('click', () => this._onDecision('route'));
     btnIncin.addEventListener('click', () => this._onDecision('incinerate'));
+
+    // Populate the static planet registry once
+    this._populatePlanetRegistry();
+  }
+
+  _populatePlanetRegistry() {
+    const regDiv = document.getElementById('planet-registry');
+    regDiv.innerHTML = '';
+    for (const planet of PLANETS.filter(p => p.flag)) {
+      const row = document.createElement('div');
+      row.className = 'registry-row';
+      row.innerHTML =
+        `<span class="reg-flag" style="color:${planet.flagColor}">${planet.flag}</span>` +
+        `<span class="reg-code">${planet.id}</span>` +
+        `<span class="reg-name">${planet.label}</span>`;
+      regDiv.appendChild(row);
+    }
   }
 
   _openInspectionPanel(pod) {
     this._paused = true;
     this._currentInspectPod = pod;
 
-    // Evaluate violations
+    // Evaluate violations internally — do NOT expose them to the player
     const violations = evaluatePod(pod.podData);
     pod.setInspectedResult(violations);
 
-    // Populate DOM
-    document.getElementById('pod-id-label').textContent = pod.podData.id;
-    document.getElementById('prop-dest').textContent    = pod.podData.destinationCode;
-    document.getElementById('prop-content').textContent = pod.podData.contentCategory;
-    document.getElementById('prop-weight').textContent  = pod.podData.weightClass;
+    // Manifest data — shown as-is, no highlighting of correct/incorrect
+    document.getElementById('pod-id-label').textContent      = pod.podData.id;
+    document.getElementById('prop-dest').textContent         = pod.podData.destinationCode;
+    document.getElementById('prop-flag').textContent         = pod.podData.destinationFlag || '—';
+    document.getElementById('prop-content').textContent      = pod.podData.contentCategory;
+    document.getElementById('prop-weight').textContent       = pod.podData.weightClass;
 
-    const scanRow = document.getElementById('scan-result-row');
+    // Reset all prop-value classes — no violation coloring
+    for (const id of ['prop-dest', 'prop-flag', 'prop-content', 'prop-weight']) {
+      document.getElementById(id).className = 'prop-value';
+    }
+
+    // X-ray scan output — derived from actual contents, not declared category
+    const scanText = SCAN_SIGNATURES[pod.podData.actualContent] || 'SCAN ERROR — NO SIGNATURE RETURNED';
+    document.getElementById('prop-scan-output').textContent = scanText;
+
+    // Weight scanner row (shown only if pod passed through scanner)
+    const weightScanRow = document.getElementById('weight-scan-row');
     if (pod.weightScanned) {
-      scanRow.style.display = '';
-      const scanSpan = document.getElementById('prop-scan');
-      if (pod.weightPassed) {
-        scanSpan.textContent  = 'PASS — weight compliant';
-        scanSpan.className    = 'prop-value pass';
-      } else {
-        scanSpan.textContent  = 'FAIL — weight violation detected';
-        scanSpan.className    = 'prop-value fail';
-      }
+      weightScanRow.style.display = '';
+      document.getElementById('prop-weight-scan').textContent = `${pod.podData.weightClass} — confirmed`;
+      document.getElementById('prop-weight-scan').className = 'prop-value';
     } else {
-      scanRow.style.display = 'none';
+      weightScanRow.style.display = 'none';
     }
 
-    // Content/weight highlights
-    document.getElementById('prop-content').className =
-      violations.some(v => v.ruleId !== 'sto-a-weight') ? 'prop-value highlight' : 'prop-value';
-    document.getElementById('prop-weight').className =
-      violations.some(v => v.ruleId === 'sto-a-weight') ? 'prop-value highlight' : 'prop-value';
-
-    // Rules list
-    const list = document.getElementById('rules-list');
-    list.innerHTML = '';
-    for (const rule of RULES) {
-      const triggered = violations.some(v => v.ruleId === rule.id);
-      const row = document.createElement('div');
-      row.className = triggered ? 'rule-row triggered' : 'rule-row';
-      row.innerHTML = `
-        <span class="rule-sev">SEV ${rule.severity}</span>
-        <span class="rule-text">${rule.description}</span>
-      `;
-      list.appendChild(row);
-    }
-
-    // Update route button label
-    document.getElementById('btn-route').textContent =
-      `Route to ${pod.podData.destinationCode}`;
+    // Route button shows declared destination
+    document.getElementById('btn-route').textContent = `Route to ${pod.podData.destinationCode}`;
 
     this._panel.classList.add('visible');
   }
@@ -449,7 +430,6 @@ export class Day1Scene extends Phaser.Scene {
     pod.markDecision(decision);
     this._closeInspectionPanel();
 
-    // Return pod to player from table
     const fromTable = this._table.hasPod() && this._table.podOnTable === pod;
     if (fromTable) {
       this._table.removePod();
@@ -457,7 +437,7 @@ export class Day1Scene extends Phaser.Scene {
     }
 
     const label = decision === 'route'
-      ? `Route to ${pod.podData.destinationCode} — carry it to the matching bay`
+      ? `Route to ${pod.podData.destinationCode} — carry it to the matching planet bay`
       : 'Marked for incineration — carry to INCINERATION bay';
     this._showToast(label, 'neutral', 3000);
   }
@@ -474,9 +454,7 @@ export class Day1Scene extends Phaser.Scene {
     return best;
   }
 
-  // Called by Player via scene.isSolid (bound in create)
   _isSolid(cx, cy, hw, hh) {
-    // Check AABB against all solid tiles
     const left   = cx - hw, right  = cx + hw - 0.1;
     const top    = cy - hh, bottom = cy + hh - 0.1;
 
@@ -491,7 +469,6 @@ export class Day1Scene extends Phaser.Scene {
         const tile = WORLD_MAP[r][c];
         if (tile === TILE.WALL || tile === TILE.BAY || tile === TILE.INCIN) return true;
 
-        // Check extra machine tiles
         for (const [mc, mr] of this._solidExtra) {
           if (mc === c && mr === r) return true;
         }

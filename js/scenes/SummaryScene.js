@@ -16,12 +16,12 @@ export class SummaryScene extends Phaser.Scene {
 
     // Header
     this.add.text(cx, 80, '// END OF DAY 1', {
-      fontSize: '20px', fontFamily: 'Courier New', color: '#446688',
+      fontSize: '22px', fontFamily: 'Courier New', color: '#446688',
       letterSpacing: 4,
     }).setOrigin(0.5);
 
     this.add.text(cx, 116, 'SHIFT COMPLETE — CARGO BAY SECURED', {
-      fontSize: '11px', fontFamily: 'Courier New', color: '#2a4a6a', letterSpacing: 2,
+      fontSize: '14px', fontFamily: 'Courier New', color: '#2a4a6a', letterSpacing: 2,
     }).setOrigin(0.5);
 
     // Divider
@@ -29,7 +29,7 @@ export class SummaryScene extends Phaser.Scene {
 
     // Credits
     this.add.text(cx, 175, `FINAL BALANCE`, {
-      fontSize: '11px', fontFamily: 'Courier New', color: '#334455', letterSpacing: 2,
+      fontSize: '14px', fontFamily: 'Courier New', color: '#334455', letterSpacing: 2,
     }).setOrigin(0.5);
 
     this.add.text(cx, 210, `${this._credits} CR`, {
@@ -40,24 +40,23 @@ export class SummaryScene extends Phaser.Scene {
 
     // Log
     this.add.text(cx, 268, 'TRANSACTION LOG', {
-      fontSize: '10px', fontFamily: 'Courier New', color: '#334455', letterSpacing: 2,
+      fontSize: '14px', fontFamily: 'Courier New', color: '#334455', letterSpacing: 2,
     }).setOrigin(0.5);
 
-    const startY = 292;
-    const shown  = this._history.slice(-10); // last 10 entries
+    const startY = 296;
+    const shown  = this._history.slice(-10);
     for (let i = 0; i < shown.length; i++) {
       const entry = shown[i];
       const col   = entry.correct ? '#3a8a5a' : '#8a3a3a';
-      const sym   = entry.delta >= 0 ? '+' : '';
-      this.add.text(cx, startY + i * 24, `${entry.reason}`, {
-        fontSize: '11px', fontFamily: 'Courier New', color: col,
+      this.add.text(cx, startY + i * 26, `${entry.reason}`, {
+        fontSize: '14px', fontFamily: 'Courier New', color: col,
       }).setOrigin(0.5);
     }
 
     // Continue prompt
-    const promptY = 680;
+    const promptY = 700;
     const prompt  = this.add.text(cx, promptY, '[ PRESS SPACE — Day 2 coming soon ]', {
-      fontSize: '13px', fontFamily: 'Courier New', color: '#334455', letterSpacing: 2,
+      fontSize: '14px', fontFamily: 'Courier New', color: '#334455', letterSpacing: 2,
     }).setOrigin(0.5);
 
     this.tweens.add({
