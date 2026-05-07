@@ -1,49 +1,57 @@
-// ── Bay definitions ──────────────────────────────────────────────────────────
-export const BAYS = [
-  { id: 'STO-A',  label: 'STORAGE A',   color: 0x1a2e3e, borderColor: 0x3366aa, description: 'General — EQUIPMENT/FOOD, max MEDIUM weight' },
-  { id: 'STO-B',  label: 'STORAGE B',   color: 0x1a2e3e, borderColor: 0x3366aa, description: 'Food cargo only, any weight class' },
-  { id: 'CRYO-1', label: 'CRYO BAY 1',  color: 0x0e1e30, borderColor: 0x2255aa, description: 'MEDICAL cargo only — refrigerated' },
-  { id: 'HAZ-1',  label: 'HAZMAT BAY',  color: 0x2a1800, borderColor: 0xaa5500, description: 'HAZMAT cargo only — sealed bay' },
-  { id: 'INCIN',  label: 'INCINERATION', color: 0x200808, borderColor: 0x882222, description: 'Destroy violating or condemned cargo' },
+// ── Planet definitions ────────────────────────────────────────────────────────
+export const PLANETS = [
+  { id: 'VERATH-IV', label: 'Verath IV',    flag: '◈', flagColor: '#4488dd', color: 0x0e1a30, borderColor: 0x3366cc },
+  { id: 'OSKAR-7',   label: 'Oskar-7',      flag: '◆', flagColor: '#9955cc', color: 0x1a0e2a, borderColor: 0x8844bb },
+  { id: 'MIRA-3',    label: 'Mira-3',       flag: '◉', flagColor: '#22bbaa', color: 0x0a1e1e, borderColor: 0x229988 },
+  { id: 'DRAKON',    label: 'Drakon Prime',  flag: '▲', flagColor: '#dd8833', color: 0x221408, borderColor: 0xaa5522 },
+  { id: 'INCIN',     label: 'INCINERATION', flag: null, flagColor: null,      color: 0x200808, borderColor: 0x882222 },
 ];
+
+// Planet IDs valid for routing (excludes INCIN)
+export const VALID_PLANET_IDS = new Set(['VERATH-IV', 'OSKAR-7', 'MIRA-3', 'DRAKON']);
+
+// Fake destination codes that appear on violating pods
+export const INVALID_PLANET_NAMES = ['XENOS-9', 'VOID-PRIME', 'SECTOR-77', 'NULLGATE', 'THE-VOID'];
+
+// ── Content categories and their x-ray scan signatures ────────────────────────
+export const CONTENT_CATEGORIES = ['ORGANIC', 'MECHANICAL', 'CHEMICAL', 'BIOLOGICAL', 'ELECTRONIC'];
+
+export const SCAN_SIGNATURES = {
+  ORGANIC:    'DENSE ORGANIC COMPOUNDS — IRREGULAR MASS DISTRIBUTION',
+  MECHANICAL: 'RIGID METALLIC STRUCTURES — HIGH DENSITY CORE DETECTED',
+  CHEMICAL:   'CONTAINED FLUID CLUSTERS — MOLECULAR DISPERSION PATTERN',
+  BIOLOGICAL: 'ACTIVE CELLULAR MASS — THERMAL SIGNATURE PRESENT',
+  ELECTRONIC: 'CIRCUIT LATTICE — ELECTROMAGNETIC INTERFERENCE READING',
+};
 
 // ── Inspection rules ──────────────────────────────────────────────────────────
 // test(pod) → true means the pod is in VIOLATION of this rule
 export const RULES = [
   {
-    id: 'hazmat-routing',
-    description: 'HAZMAT cargo must be routed to HAZMAT BAY exclusively',
+    id: 'invalid-destination',
+    description: 'Destination not found in authorized planet registry',
+    severity: 8,
+    relatedProperty: 'destinationCode',
+    test: (pod) => !VALID_PLANET_IDS.has(pod.destinationCode),
+  },
+  {
+    id: 'flag-mismatch',
+    description: 'Declared flag identifier does not match destination planet',
+    severity: 7,
+    relatedProperty: 'destinationFlag',
+    test: (pod) => {
+      const planet = PLANETS.find(p => p.id === pod.destinationCode);
+      // If destination is already invalid, that violation covers it
+      if (!planet || !planet.flag) return false;
+      return pod.destinationFlag !== planet.flag;
+    },
+  },
+  {
+    id: 'scan-mismatch',
+    description: 'X-ray scan signature does not match declared content category',
     severity: 9,
     relatedProperty: 'contentCategory',
-    test: (pod) => pod.contentCategory === 'HAZMAT' && pod.destinationCode !== 'HAZ-1',
-  },
-  {
-    id: 'non-hazmat-in-haz-bay',
-    description: 'HAZMAT BAY must not receive non-hazardous cargo',
-    severity: 6,
-    relatedProperty: 'contentCategory',
-    test: (pod) => pod.destinationCode === 'HAZ-1' && pod.contentCategory !== 'HAZMAT',
-  },
-  {
-    id: 'medical-routing',
-    description: 'MEDICAL cargo must be routed to CRYO BAY 1 exclusively',
-    severity: 7,
-    relatedProperty: 'contentCategory',
-    test: (pod) => pod.contentCategory === 'MEDICAL' && pod.destinationCode !== 'CRYO-1',
-  },
-  {
-    id: 'sto-a-weight',
-    description: 'STORAGE A is rated LIGHT/MEDIUM only — HEAVY cargo prohibited',
-    severity: 5,
-    relatedProperty: 'weightClass',
-    test: (pod) => pod.destinationCode === 'STO-A' && pod.weightClass === 'HEAVY',
-  },
-  {
-    id: 'sto-b-food-only',
-    description: 'STORAGE B is designated for FOOD cargo only',
-    severity: 6,
-    relatedProperty: 'contentCategory',
-    test: (pod) => pod.destinationCode === 'STO-B' && pod.contentCategory !== 'FOOD',
+    test: (pod) => pod.actualContent !== pod.contentCategory,
   },
 ];
 
@@ -66,17 +74,17 @@ export const TILE_SIZE = 48;
 // Rows 3,6,9,12 at cols 18–21 = dividers between bays
 export const WORLD_MAP = [
   [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], // row 0
-  [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,1], // row 1  STO-A ↑
-  [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,1], // row 2  STO-A ↓
+  [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,1], // row 1  VERATH-IV ↑
+  [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,1], // row 2  VERATH-IV ↓
   [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1], // row 3  divider
-  [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,1], // row 4  STO-B ↑
-  [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,1], // row 5  STO-B ↓
+  [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,1], // row 4  OSKAR-7 ↑
+  [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,1], // row 5  OSKAR-7 ↓
   [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1], // row 6  divider
-  [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,1], // row 7  CRYO-1 ↑
-  [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,1], // row 8  CRYO-1 ↓
+  [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,1], // row 7  MIRA-3 ↑
+  [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,1], // row 8  MIRA-3 ↓
   [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1], // row 9  divider
-  [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,1], // row 10 HAZ-1 ↑
-  [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,1], // row 11 HAZ-1 ↓
+  [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,1], // row 10 DRAKON ↑
+  [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,1], // row 11 DRAKON ↓
   [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1], // row 12 divider
   [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,4,4,1], // row 13 INCIN ↑
   [1,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,4,4,1], // row 14 INCIN ↓

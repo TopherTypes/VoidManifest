@@ -26,22 +26,20 @@
 
     canvas { display: block; }
 
-    /* ── HUD bar (rendered by Phaser, no DOM needed) ── */
-
     /* ── Inspection Panel ── */
     #inspection-panel {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 500px;
-      max-height: 680px;
+      width: 540px;
+      max-height: 700px;
       background: #0b1219;
       border: 1px solid #2a4060;
       box-shadow: 0 0 40px rgba(0,80,160,0.3), inset 0 0 60px rgba(0,0,0,0.5);
       color: #8aabcc;
       font-family: 'Courier New', Courier, monospace;
-      font-size: 13px;
+      font-size: 14px;
       z-index: 100;
       display: none;
       flex-direction: column;
@@ -60,14 +58,14 @@
 
     .panel-title {
       color: #4488bb;
-      font-size: 11px;
+      font-size: 12px;
       letter-spacing: 2px;
       text-transform: uppercase;
     }
 
     #pod-id-label {
       color: #ccddee;
-      font-size: 14px;
+      font-size: 15px;
       font-weight: bold;
       letter-spacing: 1px;
     }
@@ -79,7 +77,7 @@
     }
 
     .section-title {
-      font-size: 10px;
+      font-size: 11px;
       letter-spacing: 3px;
       color: #446688;
       text-transform: uppercase;
@@ -95,51 +93,66 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 5px 0;
+      padding: 6px 0;
       border-bottom: 1px solid #0e1a24;
     }
 
     .prop-key {
       color: #556677;
-      font-size: 11px;
+      font-size: 12px;
       letter-spacing: 1px;
     }
 
     .prop-value {
       color: #ccddee;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: bold;
     }
 
-    .prop-value.highlight { color: #ffcc44; }
-    .prop-value.pass { color: #44cc88; }
-    .prop-value.fail { color: #cc4444; }
+    /* ── X-ray scan section ── */
+    .scan-section { margin-bottom: 18px; }
 
-    .rules-section { margin-bottom: 4px; }
+    .scan-output {
+      background: #060e08;
+      border: 1px solid #1a4a22;
+      padding: 12px 14px;
+      font-size: 14px;
+      color: #44cc88;
+      line-height: 1.6;
+      letter-spacing: 0.5px;
+      font-style: italic;
+    }
 
-    .rule-row {
+    /* ── Planet registry section ── */
+    .registry-section { margin-bottom: 8px; }
+
+    .registry-row {
       display: flex;
-      gap: 10px;
-      align-items: flex-start;
-      padding: 5px 0;
+      align-items: center;
+      gap: 14px;
+      padding: 6px 0;
       border-bottom: 1px solid #0e1a24;
     }
 
-    .rule-sev {
-      font-size: 10px;
-      color: #888;
+    .reg-flag {
+      font-size: 18px;
       min-width: 24px;
-      padding-top: 1px;
+      text-align: center;
     }
 
-    .rule-text {
-      font-size: 11px;
-      color: #7a9ab0;
-      line-height: 1.5;
+    .reg-code {
+      font-size: 14px;
+      font-weight: bold;
+      color: #ccddee;
+      min-width: 100px;
+      letter-spacing: 1px;
     }
 
-    .rule-row.triggered .rule-text { color: #ff8844; }
-    .rule-row.triggered .rule-sev  { color: #ff8844; }
+    .reg-name {
+      font-size: 13px;
+      color: #557799;
+      letter-spacing: 1px;
+    }
 
     .panel-footer {
       border-top: 1px solid #1e3650;
@@ -150,9 +163,9 @@
 
     .btn {
       flex: 1;
-      padding: 10px;
+      padding: 11px;
       font-family: 'Courier New', Courier, monospace;
-      font-size: 12px;
+      font-size: 14px;
       letter-spacing: 2px;
       text-transform: uppercase;
       cursor: pointer;
@@ -183,8 +196,8 @@
       border: 1px solid #2a4060;
       color: #8aabcc;
       font-family: 'Courier New', Courier, monospace;
-      font-size: 12px;
-      padding: 8px 20px;
+      font-size: 14px;
+      padding: 9px 22px;
       letter-spacing: 1px;
       pointer-events: none;
       opacity: 0;
@@ -207,11 +220,16 @@
         <span id="pod-id-label">POD-000</span>
       </div>
       <div class="panel-body">
+
         <div class="properties-section">
           <div class="section-title">Manifest Data</div>
           <div class="property-row">
             <span class="prop-key">DESTINATION</span>
             <span class="prop-value" id="prop-dest">—</span>
+          </div>
+          <div class="property-row">
+            <span class="prop-key">DECLARED FLAG</span>
+            <span class="prop-value" id="prop-flag">—</span>
           </div>
           <div class="property-row">
             <span class="prop-key">CONTENT TYPE</span>
@@ -221,15 +239,22 @@
             <span class="prop-key">WEIGHT CLASS</span>
             <span class="prop-value" id="prop-weight">—</span>
           </div>
-          <div class="property-row" id="scan-result-row" style="display:none">
-            <span class="prop-key">AUTO-WEIGHT SCAN</span>
-            <span class="prop-value" id="prop-scan">—</span>
+          <div class="property-row" id="weight-scan-row" style="display:none">
+            <span class="prop-key">WEIGHT SCAN</span>
+            <span class="prop-value" id="prop-weight-scan">—</span>
           </div>
         </div>
-        <div class="rules-section">
-          <div class="section-title">Current Cargo Regulations</div>
-          <div id="rules-list"></div>
+
+        <div class="scan-section">
+          <div class="section-title">X-Ray Content Analysis</div>
+          <div class="scan-output" id="prop-scan-output">AWAITING SCAN…</div>
         </div>
+
+        <div class="registry-section">
+          <div class="section-title">Authorized Planet Registry</div>
+          <div id="planet-registry"></div>
+        </div>
+
       </div>
       <div class="panel-footer">
         <button id="btn-route" class="btn">Route to Destination</button>

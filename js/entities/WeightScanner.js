@@ -1,9 +1,7 @@
-import { TILE_SIZE, RULES } from '../data/rules.js';
+import { TILE_SIZE } from '../data/rules.js';
 
 const SCAN_MS = 1800;
 const TW = 2, TH = 2;
-
-const WEIGHT_RULE_ID = 'sto-a-weight';
 
 export class WeightScanner extends Phaser.GameObjects.Container {
   constructor(scene, tileX, tileY) {
@@ -27,7 +25,7 @@ export class WeightScanner extends Phaser.GameObjects.Container {
     this._build();
     scene.add.existing(this);
     this.setDepth(2);
-    this.setVisible(false); // hidden until unlocked
+    this.setVisible(false);
   }
 
   _build() {
@@ -36,14 +34,8 @@ export class WeightScanner extends Phaser.GameObjects.Container {
     this._bg = this.scene.add.rectangle(0, 0, PW - 4, PH - 4, 0x0d1f0d)
       .setStrokeStyle(1.5, 0x2a7a2a);
 
-    // Pass label (top)
-    this._passLabel = this.scene.add.text(0, -PH/2 + 7, '▲  PASS', {
+    this._outLabel = this.scene.add.text(0, -PH/2 + 7, '▲  OUTPUT', {
       fontSize: '8px', fontFamily: 'Courier New', color: '#2a7a2a', letterSpacing: 1,
-    }).setOrigin(0.5);
-
-    // Fail label (bottom)
-    this._failLabel = this.scene.add.text(0, PH/2 - 7, '▼  FAIL', {
-      fontSize: '8px', fontFamily: 'Courier New', color: '#7a2a2a', letterSpacing: 1,
     }).setOrigin(0.5);
 
     this._nameLabel = this.scene.add.text(0, -12, 'WEIGHT', {
@@ -55,7 +47,7 @@ export class WeightScanner extends Phaser.GameObjects.Container {
     }).setOrigin(0.5);
 
     // Progress bar track
-    this._barBg = this.scene.add.rectangle(0, 14, 60, 7, 0x0a100a)
+    this._barBg   = this.scene.add.rectangle(0, 14, 60, 7, 0x0a100a)
       .setStrokeStyle(1, 0x1a4a1a);
 
     // Progress bar fill (origin left-center)
@@ -67,7 +59,7 @@ export class WeightScanner extends Phaser.GameObjects.Container {
       .setStrokeStyle(1, 0x224422);
 
     this.add([
-      this._bg, this._passLabel, this._failLabel,
+      this._bg, this._outLabel,
       this._nameLabel, this._nameLabel2,
       this._barBg, this._barFill, this._light,
     ]);
@@ -76,10 +68,8 @@ export class WeightScanner extends Phaser.GameObjects.Container {
 
   activate() {
     this.setVisible(true);
-    // Register solid tiles with scene
     this.scene.addSolidMachineTiles(this.solidTiles);
 
-    // Brief activation flash
     this.scene.tweens.add({
       targets: this._bg,
       alpha: { from: 0, to: 1 },
@@ -95,12 +85,12 @@ export class WeightScanner extends Phaser.GameObjects.Container {
 
   acceptPod(pod) {
     if (this.scanning) return false;
-    this.podInside    = pod;
-    pod.podState      = 'in_scanner';
+    this.podInside = pod;
+    pod.podState   = 'in_scanner';
     pod.setPosition(this.x, this.y);
     pod.setVisible(false);
-    this.scanning     = true;
-    this.elapsed      = 0;
+    this.scanning  = true;
+    this.elapsed   = 0;
     this._light.setFillStyle(0xffcc00).setStrokeStyle(1, 0xffee44);
     return true;
   }
@@ -116,35 +106,26 @@ export class WeightScanner extends Phaser.GameObjects.Container {
   }
 
   _eject() {
-    const pod        = this.podInside;
-    const weightRule = RULES.find(r => r.id === WEIGHT_RULE_ID);
-    const fail       = weightRule ? weightRule.test(pod) : false;
+    const pod = this.podInside;
 
-    this.scanning     = false;
-    this.elapsed      = 0;
+    this.scanning      = false;
+    this.elapsed       = 0;
     this._barFill.width = 0;
-    this.podInside    = null;
+    this.podInside     = null;
 
     pod.setVisible(true);
-    pod.podState       = 'on_floor';
-    pod.weightScanned  = true;
-    pod.weightPassed   = !fail;
+    pod.podState      = 'on_floor';
+    pod.weightScanned = true;
+    pod.weightPassed  = true; // weight scanner confirms weight class
 
-    const outPos = fail ? this.failOutputPos : this.passOutputPos;
-    pod.setPosition(outPos.x, outPos.y);
+    pod.setPosition(this.passOutputPos.x, this.passOutputPos.y);
 
-    if (fail) {
-      this._light.setFillStyle(0xcc2222).setStrokeStyle(1, 0xff4444);
-      this._failLabel.setColor('#cc4444');
-    } else {
-      this._light.setFillStyle(0x22cc22).setStrokeStyle(1, 0x44ff44);
-      this._passLabel.setColor('#44cc44');
-    }
+    this._light.setFillStyle(0x22cc22).setStrokeStyle(1, 0x44ff44);
+    this._outLabel.setColor('#44cc44');
 
     this.scene.time.delayedCall(800, () => {
       this._light.setFillStyle(0x112211).setStrokeStyle(1, 0x224422);
-      this._passLabel.setColor('#2a7a2a');
-      this._failLabel.setColor('#7a2a2a');
+      this._outLabel.setColor('#2a7a2a');
     });
   }
 }

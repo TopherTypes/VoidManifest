@@ -1,8 +1,7 @@
-import { RULES } from './rules.js';
+import { RULES, VALID_PLANET_IDS, INVALID_PLANET_NAMES, PLANETS, CONTENT_CATEGORIES } from './rules.js';
 
-const DESTINATIONS   = ['STO-A', 'STO-B', 'CRYO-1', 'HAZ-1'];
-const CONTENTS       = ['FOOD', 'EQUIPMENT', 'MEDICAL', 'HAZMAT'];
-const WEIGHT_CLASSES = ['LIGHT', 'MEDIUM', 'HEAVY'];
+const VALID_DESTINATIONS = [...VALID_PLANET_IDS];
+const WEIGHT_CLASSES     = ['LIGHT', 'MEDIUM', 'HEAVY'];
 
 let _idCounter = 1;
 
@@ -10,44 +9,67 @@ function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+function getFlag(planetId) {
+  const planet = PLANETS.find(p => p.id === planetId);
+  return planet?.flag ?? '?';
+}
+
 function podHasViolation(pod) {
   return RULES.some(r => r.test(pod));
 }
 
-function makePod() {
+function makePodBase() {
+  const destCode = pick(VALID_DESTINATIONS);
+  const content  = pick(CONTENT_CATEGORIES);
   return {
-    id: `POD-${String(_idCounter++).padStart(3, '0')}`,
-    destinationCode:   pick(DESTINATIONS),
-    contentCategory:   pick(CONTENTS),
-    weightClass:       pick(WEIGHT_CLASSES),
+    id:               `POD-${String(_idCounter++).padStart(3, '0')}`,
+    destinationCode:  destCode,
+    destinationFlag:  getFlag(destCode),
+    contentCategory:  content,
+    actualContent:    content,
+    weightClass:      pick(WEIGHT_CLASSES),
   };
 }
 
 function generateValid() {
-  let pod;
-  let attempts = 0;
-  do { pod = makePod(); attempts++; } while (podHasViolation(pod) && attempts < 60);
-
-  if (podHasViolation(pod)) {
-    // Guaranteed-valid fallback
-    pod.contentCategory = 'FOOD';
-    pod.destinationCode = 'STO-B';
-    pod.weightClass = 'LIGHT';
-  }
-  return pod;
+  // Base pod is always valid: real destination, correct flag, matching actualContent
+  return makePodBase();
 }
 
 function generateViolating() {
-  let pod;
-  let attempts = 0;
-  do { pod = makePod(); attempts++; } while (!podHasViolation(pod) && attempts < 60);
+  const pod = makePodBase();
+  const violationType = Math.floor(Math.random() * 3);
 
-  if (!podHasViolation(pod)) {
-    // Guaranteed-violation fallback: HAZMAT routed to wrong bay
-    pod.contentCategory = 'HAZMAT';
-    pod.destinationCode = 'STO-A';
-    pod.weightClass = pick(WEIGHT_CLASSES);
+  switch (violationType) {
+    case 0: {
+      // Invalid destination — pod routed to an unrecognized planet
+      pod.destinationCode = pick(INVALID_PLANET_NAMES);
+      // Assign a random valid flag (so the flag alone doesn't identify the issue)
+      pod.destinationFlag = pick(PLANETS.filter(p => p.flag).map(p => p.flag));
+      break;
+    }
+    case 1: {
+      // Flag mismatch — valid planet but wrong flag declared on manifest
+      const allFlags    = PLANETS.filter(p => p.flag).map(p => p.flag);
+      const correctFlag = getFlag(pod.destinationCode);
+      const wrongFlags  = allFlags.filter(f => f !== correctFlag);
+      pod.destinationFlag = pick(wrongFlags);
+      break;
+    }
+    case 2: {
+      // Content scan mismatch — declared content type differs from actual contents
+      const others      = CONTENT_CATEGORIES.filter(c => c !== pod.contentCategory);
+      pod.actualContent = pick(others);
+      break;
+    }
   }
+
+  // Fallback: guarantee at least one violation
+  if (!podHasViolation(pod)) {
+    pod.destinationCode = pick(INVALID_PLANET_NAMES);
+    pod.destinationFlag = pick(PLANETS.filter(p => p.flag).map(p => p.flag));
+  }
+
   return pod;
 }
 
