@@ -1,4 +1,4 @@
-import { TILE, TILE_SIZE, PLANETS, SCAN_SIGNATURES, WEIGHT_BOUNDS } from '../data/rules.js';
+import { TILE, TILE_SIZE, PLANETS, SCAN_SIGNATURES, WEIGHT_BOUNDS, WORLD_MAP } from '../data/rules.js';
 import { generatePodBatch }  from '../data/pods.js';
 import { Economy }           from '../systems/Economy.js';
 import { Progression }       from '../systems/Progression.js';
@@ -10,13 +10,26 @@ import { WeightScanner }     from '../entities/WeightScanner.js';
 import { Bay }               from '../entities/Bay.js';
 
 // ── Layout constants ──────────────────────────────────────────────────────────
-// These will be recalculated based on viewport
-let COLS = 22, ROWS = 16;
+const COLS = 22, ROWS = 16;
 const TOTAL_PODS   = 12;
-let TABLE_TX = 9,  TABLE_TY = 6;
-let SCANNER_TX = 4, SCANNER_TY = 6;
+const TABLE_TX = 9,  TABLE_TY = 6;
+const SCANNER_TX = 4, SCANNER_TY = 6;
 
-// Pod spawn grid and bay layout will be generated dynamically in create()
+// Bay layout: [planetId, tileX, tileY]
+const BAY_LAYOUT = [
+  ['VERATH-IV', 18, 1],
+  ['OSKAR-7',   18, 4],
+  ['MIRA-3',    18, 7],
+  ['DRAKON',    18, 10],
+  ['INCIN',     18, 13],
+];
+
+// Pod spawn grid (column, row) within delivery zone
+const SPAWN_SLOTS = [
+  [1,1],[2,1],[1,3],[2,3],[1,5],[2,5],
+  [1,7],[2,7],[1,9],[2,9],[1,11],[2,11],
+  [1,13],[2,13],
+];
 
 // ── Handbook static data ──────────────────────────────────────────────────────
 const CONTENT_RULES = {
@@ -31,49 +44,18 @@ export class Day1Scene extends Phaser.Scene {
   constructor() { super({ key: 'Day1Scene' }); }
 
   onWindowResize(dims) {
-    COLS = Math.max(22, dims.tilesX);
-    ROWS = Math.max(16, dims.tilesY);
-
-    // Recenter machines relative to new dimensions
-    TABLE_TX = Math.floor(COLS * 0.4);
-    TABLE_TY = Math.floor(ROWS / 2);
-    SCANNER_TX = Math.floor(COLS * 0.18);
-    SCANNER_TY = Math.floor(ROWS / 2);
-
     this.scale.resize(dims.width, dims.height);
+    this._updateCameraZoom();
   }
 
   // ── create ──────────────────────────────────────────────────────────────────
   create() {
-    COLS = Math.max(22, Math.floor(this.cameras.main.width / TILE_SIZE));
-    ROWS = Math.max(16, Math.floor(this.cameras.main.height / TILE_SIZE));
-
-    // Position machines based on calculated dimensions
-    TABLE_TX = Math.floor(COLS * 0.4);
-    TABLE_TY = Math.floor(ROWS / 2);
-    SCANNER_TX = Math.floor(COLS * 0.18);
-    SCANNER_TY = Math.floor(ROWS / 2);
-
     this._economy     = new Economy(50);
     this._progression = new Progression(1);
     this._paused      = false;
     this._pods        = [];
     this._processedCount = 0;
     this._solidExtra  = [];
-    this._worldMap    = this._generateWorldMap();
-
-    // Generate spawn slots dynamically
-    this._spawnSlots = [];
-    for (let row = 1; row < ROWS - 1; row += 2) {
-      for (let col = 1; col <= 2; col++) {
-        this._spawnSlots.push([col, row]);
-        if (this._spawnSlots.length >= TOTAL_PODS) break;
-      }
-      if (this._spawnSlots.length >= TOTAL_PODS) break;
-    }
-    while (this._spawnSlots.length < TOTAL_PODS) {
-      this._spawnSlots.push([1, Math.floor(Math.random() * (ROWS - 2)) + 1]);
-    }
 
     this.isSolid = this._isSolid.bind(this);
     this.addSolidMachineTiles = (tiles) => {
@@ -89,7 +71,27 @@ export class Day1Scene extends Phaser.Scene {
     this._wireProgression();
     this._wireInspectionPanel();
 
+    // Set up camera to follow player with smooth damping
+    this.cameras.main.startFollow(this._player, true, 0.1, 0.1);
+    this.cameras.main.setBounds(0, 0, COLS * TILE_SIZE, ROWS * TILE_SIZE);
+
+    this._updateCameraZoom();
+
     this._showToast('Day 1 — Inspect each pod and approve/deny based on manifest', 'neutral', 4000);
+  }
+
+  _updateCameraZoom() {
+    const worldWidth = COLS * TILE_SIZE;
+    const worldHeight = ROWS * TILE_SIZE;
+    const screenWidth = this.cameras.main.width;
+    const screenHeight = this.cameras.main.height;
+
+    // Calculate zoom to fit appropriate number of tiles
+    const zoomX = screenWidth / worldWidth;
+    const zoomY = screenHeight / worldHeight;
+    const zoom = Math.min(zoomX, zoomY);
+
+    this.cameras.main.setZoom(zoom);
   }
 
   // ── update ───────────────────────────────────────────────────────────────────
@@ -109,7 +111,7 @@ export class Day1Scene extends Phaser.Scene {
 
     for (let row = 0; row < ROWS; row++) {
       for (let col = 0; col < COLS; col++) {
-        const tile = this._worldMap[row][col];
+        const tile = WORLD_MAP[row][col];
         const x    = col * TILE_SIZE;
         const y    = row * TILE_SIZE;
 
@@ -153,87 +155,19 @@ export class Day1Scene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(1).setAngle(-90);
 
     // Arrow hints pointing right from delivery zone
-    const startRow = Math.max(2, Math.floor(ROWS * 0.1));
-    const endRow = Math.min(ROWS - 2, Math.floor(ROWS * 0.85));
-    for (let r = startRow; r < endRow; r += 3) {
+    for (let r = 2; r < 14; r += 3) {
       this.add.text(3 * TILE_SIZE - 6, r * TILE_SIZE + TILE_SIZE / 2, '›', {
         fontSize: '14px', fontFamily: 'Courier New', color: '#1e3a1e',
       }).setOrigin(0.5).setDepth(1);
     }
   }
 
-  _generateWorldMap() {
-    const map = [];
-
-    // Delivery zone = cols 1-2, central floor = cols 3 to (COLS-4), bays = cols (COLS-3) to (COLS-2)
-    const deliveryColEnd = 2;
-    const bayColStart = Math.max(3, COLS - 3);
-    const floorColEnd = bayColStart - 1;
-
-    for (let row = 0; row < ROWS; row++) {
-      const mapRow = [];
-
-      for (let col = 0; col < COLS; col++) {
-        let tile = TILE.FLOOR;
-
-        // Outer walls
-        if (row === 0 || row === ROWS - 1 || col === 0 || col === COLS - 1) {
-          tile = TILE.WALL;
-        }
-        // Delivery zone
-        else if (col >= 1 && col <= deliveryColEnd) {
-          tile = TILE.DELIVERY;
-        }
-        // Open floor
-        else if (col > deliveryColEnd && col < bayColStart) {
-          tile = TILE.FLOOR;
-        }
-        // Bay columns
-        else if (col >= bayColStart) {
-          // Dividers between bays (at specific row intervals)
-          const bayHeight = (ROWS - 2) / 5; // 5 bays
-          const bayIndex = Math.floor((row - 1) / bayHeight);
-          const rowInBay = (row - 1) % bayHeight;
-
-          if (bayIndex < 4 && rowInBay > bayHeight - 1.2) {
-            tile = TILE.WALL;
-          } else if (bayIndex === 4) {
-            tile = TILE.INCIN;
-          } else {
-            tile = TILE.BAY;
-          }
-        }
-
-        mapRow.push(tile);
-      }
-      map.push(mapRow);
-    }
-
-    return map;
-  }
-
   // ── Bays ─────────────────────────────────────────────────────────────────────
   _createBays() {
     this._bays = [];
-
-    // Position bays dynamically along the right edge
-    const bayColStart = Math.max(3, COLS - 3);
-    const bayWidth = 3;
-    const bayHeight = (ROWS - 2) / 5;
-
-    const bayPlanets = [
-      { id: 'VERATH-IV', planetId: 'VERATH-IV' },
-      { id: 'OSKAR-7',   planetId: 'OSKAR-7' },
-      { id: 'MIRA-3',    planetId: 'MIRA-3' },
-      { id: 'DRAKON',    planetId: 'DRAKON' },
-      { id: 'INCIN',     planetId: 'INCIN' },
-    ];
-
-    for (let i = 0; i < bayPlanets.length; i++) {
-      const tx = bayColStart;
-      const ty = Math.floor(1 + i * bayHeight);
-      const planetData = PLANETS.find(p => p.id === bayPlanets[i].planetId);
-      const bay = new Bay(this, tx, ty, planetData);
+    for (const [id, tx, ty] of BAY_LAYOUT) {
+      const planetData = PLANETS.find(p => p.id === id);
+      const bay        = new Bay(this, tx, ty, planetData);
       this._bays.push(bay);
     }
   }
@@ -250,7 +184,7 @@ export class Day1Scene extends Phaser.Scene {
   _spawnPods() {
     const data = generatePodBatch(TOTAL_PODS);
     for (let i = 0; i < data.length; i++) {
-      const slot = this._spawnSlots[i % this._spawnSlots.length];
+      const slot = SPAWN_SLOTS[i % SPAWN_SLOTS.length];
       const px   = slot[0] * TILE_SIZE + TILE_SIZE / 2;
       const py   = slot[1] * TILE_SIZE + TILE_SIZE / 2;
       const pod  = new CargoPod(this, px, py, data[i]);
@@ -260,8 +194,8 @@ export class Day1Scene extends Phaser.Scene {
 
   // ── Player ───────────────────────────────────────────────────────────────────
   _createPlayer() {
-    const startX = 2 * TILE_SIZE - TILE_SIZE / 2;
-    const startY = ROWS * TILE_SIZE / 2;
+    const startX = 2 * TILE_SIZE + TILE_SIZE / 2;
+    const startY = 8 * TILE_SIZE + TILE_SIZE / 2;
     this._player = new Player(this, startX, startY);
   }
 
@@ -1080,7 +1014,7 @@ export class Day1Scene extends Phaser.Scene {
     for (let r = rowT; r <= rowB; r++) {
       for (let c = colL; c <= colR; c++) {
         if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return true;
-        const tile = this._worldMap[r][c];
+        const tile = WORLD_MAP[r][c];
         if (tile === TILE.WALL || tile === TILE.BAY || tile === TILE.INCIN) return true;
 
         for (const [mc, mr] of this._solidExtra) {

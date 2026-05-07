@@ -7,14 +7,9 @@ function getGameDimensions() {
   const w = window.innerWidth;
   const h = window.innerHeight;
 
-  const tilesX = Math.max(15, Math.floor(w / TILE_SIZE));
-  const tilesY = Math.max(10, Math.floor(h / TILE_SIZE));
-
   return {
-    width: tilesX * TILE_SIZE,
-    height: tilesY * TILE_SIZE,
-    tilesX,
-    tilesY,
+    width: w,
+    height: h,
   };
 }
 
