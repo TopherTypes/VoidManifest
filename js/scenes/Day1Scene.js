@@ -201,25 +201,27 @@ export class Day1Scene extends Phaser.Scene {
 
   // ── HUD ──────────────────────────────────────────────────────────────────────
   _createHUD() {
+    const cam = this.cameras.main;
+
     this._hudCreditsText = this.add.text(12, 8, '', {
       fontSize: '14px', fontFamily: 'Courier New', color: '#66aaff',
-    }).setDepth(20).setScrollFactor(0);
+    }).setDepth(20).setScrollFactor(0).setFixedSize(200, 0);
 
-    this._hudProgressText = this.add.text(1044, 8, '', {
+    this._hudProgressText = this.add.text(cam.width - 12, 8, '', {
       fontSize: '14px', fontFamily: 'Courier New', color: '#668888',
-    }).setDepth(20).setScrollFactor(0).setOrigin(1, 0);
+    }).setDepth(20).setScrollFactor(0).setOrigin(1, 0).setFixedSize(200, 0);
 
-    this._hudDayText = this.add.text(528, 8, 'DAY 1', {
+    this._hudDayText = this.add.text(cam.width / 2, 8, 'DAY 1', {
       fontSize: '14px', fontFamily: 'Courier New', color: '#334455',
       letterSpacing: 3,
     }).setDepth(20).setScrollFactor(0).setOrigin(0.5, 0);
 
-    this._promptText = this.add.text(528, 748, '', {
+    this._promptText = this.add.text(cam.width / 2, cam.height - 20, '', {
       fontSize: '14px', fontFamily: 'Courier New', color: '#446688',
       letterSpacing: 1,
-    }).setDepth(20).setScrollFactor(0).setOrigin(0.5, 1);
+    }).setDepth(20).setScrollFactor(0).setOrigin(0.5, 1).setFixedSize(600, 0);
 
-    this._unlockBanner = this.add.text(528, 40, '', {
+    this._unlockBanner = this.add.text(cam.width / 2, 40, '', {
       fontSize: '14px', fontFamily: 'Courier New', color: '#44cc88',
       backgroundColor: '#0d1f0d', padding: { x: 10, y: 6 }, letterSpacing: 1,
     }).setDepth(21).setScrollFactor(0).setOrigin(0.5, 0).setAlpha(0);
