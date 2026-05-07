@@ -13,6 +13,7 @@ export class Bay extends Phaser.GameObjects.Container {
     this.tileY   = tileY;
     this.bayData = bayData;
     this.count   = 0;
+    this.parcels = [];
 
     this._build();
     scene.add.existing(this);
@@ -73,14 +74,30 @@ export class Bay extends Phaser.GameObjects.Container {
     return dx > -10 && dx < TILE_SIZE * 1.4 && py > topEdge && py < botEdge;
   }
 
-  deposit(pod) {
+  // Place a parcel in the bay (staged for submission)
+  placePod(pod) {
+    this.parcels.push(pod);
     this.count++;
     this._countText.setText(String(this.count));
     pod.setVisible(false);
-    pod.podState = 'deposited';
+    pod.podState = 'in_bay';
 
     const origColor = this.bayData.borderColor;
     this._bg.setStrokeStyle(2, 0xffffff);
     this.scene.time.delayedCall(200, () => this._bg.setStrokeStyle(1.5, origColor));
+  }
+
+  // Submit all parcels in the bay and return them
+  submitParcels() {
+    const parcelsToSubmit = this.parcels;
+    this.parcels = [];
+    this.count = 0;
+    this._countText.setText(String(this.count));
+    return parcelsToSubmit;
+  }
+
+  // Legacy method for compatibility
+  deposit(pod) {
+    this.placePod(pod);
   }
 }

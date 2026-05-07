@@ -1,4 +1,4 @@
-import { RULES, VALID_PLANET_IDS, INVALID_PLANET_NAMES, PLANETS, CONTENT_CATEGORIES } from './rules.js';
+import { RULES, VALID_PLANET_IDS, INVALID_PLANET_NAMES, PLANETS, CONTENT_CATEGORIES, INCORRECT_FLAGS } from './rules.js';
 
 const VALID_DESTINATIONS = [...VALID_PLANET_IDS];
 const WEIGHT_CLASSES     = ['LIGHT', 'MEDIUM', 'HEAVY'];
@@ -44,16 +44,19 @@ function generateViolating() {
     case 0: {
       // Invalid destination — pod routed to an unrecognized planet
       pod.destinationCode = pick(INVALID_PLANET_NAMES);
-      // Assign a random valid flag (so the flag alone doesn't identify the issue)
-      pod.destinationFlag = pick(PLANETS.filter(p => p.flag).map(p => p.flag));
+      // Assign a random incorrect flag
+      pod.destinationFlag = pick(INCORRECT_FLAGS);
       break;
     }
     case 1: {
       // Flag mismatch — valid planet but wrong flag declared on manifest
-      const allFlags    = PLANETS.filter(p => p.flag).map(p => p.flag);
       const correctFlag = getFlag(pod.destinationCode);
-      const wrongFlags  = allFlags.filter(f => f !== correctFlag);
-      pod.destinationFlag = pick(wrongFlags);
+      // Pick either an incorrect flag or a flag from another planet
+      const allWrongFlags = [
+        ...INCORRECT_FLAGS,
+        ...PLANETS.filter(p => p.flag && p.flag !== correctFlag).map(p => p.flag),
+      ];
+      pod.destinationFlag = pick(allWrongFlags);
       break;
     }
     case 2: {
@@ -67,7 +70,7 @@ function generateViolating() {
   // Fallback: guarantee at least one violation
   if (!podHasViolation(pod)) {
     pod.destinationCode = pick(INVALID_PLANET_NAMES);
-    pod.destinationFlag = pick(PLANETS.filter(p => p.flag).map(p => p.flag));
+    pod.destinationFlag = pick(INCORRECT_FLAGS);
   }
 
   return pod;

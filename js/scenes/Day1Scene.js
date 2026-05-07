@@ -329,9 +329,19 @@ export class Day1Scene extends Phaser.Scene {
       if (this._table.hasPod() && player.isNear(tip.x, tip.y)) {
         hint = '[E] Pick up pod from table';
       } else {
-        const near = this._nearestFloorPod(player.x, player.y);
-        if (near) hint = `[E] Pick up ${near.podData.id}`;
-        else      hint = 'WASD / Arrow keys to move';
+        // Check for bay with parcels to submit
+        for (const bay of this._bays) {
+          if (bay.playerCanDeposit(player.x, player.y) && bay.parcels.length > 0) {
+            hint = `[E] Submit ${bay.parcels.length} parcel${bay.parcels.length !== 1 ? 's' : ''} from ${bay.bayData.id}`;
+            break;
+          }
+        }
+
+        if (!hint) {
+          const near = this._nearestFloorPod(player.x, player.y);
+          if (near) hint = `[E] Pick up ${near.podData.id}`;
+          else      hint = 'WASD / Arrow keys to move';
+        }
       }
     }
 
@@ -418,7 +428,15 @@ export class Day1Scene extends Phaser.Scene {
       return;
     }
 
-    // 2. Pick up floor pod
+    // 2. Submit parcels at bay
+    for (const bay of this._bays) {
+      if (bay.playerCanDeposit(player.x, player.y) && bay.parcels.length > 0) {
+        this._submitBayParcels(player, bay);
+        return;
+      }
+    }
+
+    // 3. Pick up floor pod
     const near = this._nearestFloorPod(player.x, player.y);
     if (near) {
       player.pickUp(near);
@@ -434,18 +452,36 @@ export class Day1Scene extends Phaser.Scene {
     player.putDown();
     pod.setPosition(bay.x, bay.y);
 
-    const result = this._economy.scoreDeposit(
-      { ...pod.podData, violations: pod.violations },
-      bay.bayData.id
-    );
+    bay.placePod(pod);
+    this._showToast(`Placed in bay. Collect more to submit batch, or [E] to submit now.`, 'neutral', 2200);
+  }
 
-    bay.deposit(pod);
-    this._processedCount++;
+  _submitBayParcels(player, bay) {
+    const parcels = bay.submitParcels();
+    if (parcels.length === 0) return;
+
+    let correct = 0, incorrect = 0;
+    const reasons = [];
+
+    for (const pod of parcels) {
+      const result = this._economy.scoreDeposit(
+        { ...pod.podData, violations: pod.violations },
+        bay.bayData.id
+      );
+      if (result.correct) {
+        correct++;
+      } else {
+        incorrect++;
+      }
+      reasons.push(result.reason);
+      this._processedCount++;
+    }
+
     this._checkProgression();
     this._checkDayEnd();
 
-    const cls = result.correct ? 'positive' : 'negative';
-    this._showToast(result.reason, cls, 2200);
+    const summary = `SUBMISSION REPORT: ${correct} approved, ${incorrect} denied | ${reasons.join(' | ')}`;
+    this._showToast(summary, 'neutral', 4000);
   }
 
   // ── Inspection panel (HTML overlay) ─────────────────────────────────────────
