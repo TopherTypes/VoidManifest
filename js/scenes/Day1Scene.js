@@ -910,10 +910,10 @@ export class Day1Scene extends Phaser.Scene {
     const violations = evaluatePod(pod.podData);
     pod.setInspectedResult(violations);
 
-    // Calculate numerical weight from pod ID and weight class bounds
+    // Calculate actual weight from pod ID and weight class bounds
     const bounds  = WEIGHT_BOUNDS[pod.podData.weightClass];
     const frac    = ((parseInt(pod.podData.id.replace('POD-', ''), 10) * 2654435761) >>> 0) / 4294967296;
-    const weightKg = bounds
+    const measKg  = bounds
       ? Math.floor(bounds.min + frac * (bounds.max - bounds.min))
       : '—';
 
@@ -924,8 +924,8 @@ export class Day1Scene extends Phaser.Scene {
     document.getElementById('prop-dest').textContent    = pod.podData.destinationCode;
     document.getElementById('prop-flag').textContent    = pod.podData.destinationFlag || '—';
 
-    // Display declared weight in scan section for comparison
-    document.getElementById('prop-declared-weight').textContent = `${weightKg} kg`;
+    // Display actual weight in scan readouts for comparison against declared class
+    document.getElementById('prop-weight-scan').textContent = `${measKg} kg`;
 
     // Draw declared flag colour preview
     const flagCanvas = document.getElementById('declared-flag-canvas');
@@ -948,21 +948,6 @@ export class Day1Scene extends Phaser.Scene {
 
     for (const id of ['prop-weight', 'prop-content', 'prop-dest', 'prop-flag']) {
       document.getElementById(id).className = 'prop-value';
-    }
-
-    // Weight scan readout — show measured kg if pod passed through scanner
-    const weightScanRow = document.getElementById('weight-scan-row');
-    if (pod.weightScanned) {
-      const bounds  = WEIGHT_BOUNDS[pod.podData.weightClass];
-      const frac    = ((parseInt(pod.podData.id.replace('POD-', ''), 10) * 2654435761) >>> 0) / 4294967296;
-      const measKg  = bounds
-        ? Math.floor(bounds.min + frac * (bounds.max - bounds.min))
-        : '—';
-      document.getElementById('prop-weight-scan').textContent =
-        `${measKg} kg (${pod.podData.weightClass})`;
-      weightScanRow.style.display = '';
-    } else {
-      weightScanRow.style.display = 'none';
     }
 
     // X-ray canvas — drawn from actual content (not declared)
