@@ -919,10 +919,13 @@ export class Day1Scene extends Phaser.Scene {
 
     // Declared manifest — shown as declared, no violation colouring
     document.getElementById('pod-id-label').textContent = pod.podData.id;
-    document.getElementById('prop-weight').textContent  = `${weightKg} kg (${pod.podData.weightClass})`;
+    document.getElementById('prop-weight').textContent  = pod.podData.weightClass;
     document.getElementById('prop-content').textContent = pod.podData.contentCategory;
     document.getElementById('prop-dest').textContent    = pod.podData.destinationCode;
     document.getElementById('prop-flag').textContent    = pod.podData.destinationFlag || '—';
+
+    // Display declared weight in scan section for comparison
+    document.getElementById('prop-declared-weight').textContent = `${weightKg} kg`;
 
     // Draw declared flag colour preview
     const flagCanvas = document.getElementById('declared-flag-canvas');
