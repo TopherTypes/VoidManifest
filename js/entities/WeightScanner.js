@@ -58,10 +58,15 @@ export class WeightScanner extends Phaser.GameObjects.Container {
     this._light = this.scene.add.circle(PW/2 - 10, -PH/2 + 10, 5, 0x112211)
       .setStrokeStyle(1, 0x224422);
 
+    // Interaction zone indicator (left face)
+    this._interactionZone = this.scene.add.rectangle(-TILE_SIZE, 0, TILE_SIZE - 2, PH - 4, 0x227722)
+      .setStrokeStyle(1, 0x44dd44)
+      .setAlpha(0.15);
+
     this.add([
       this._bg, this._outLabel,
       this._nameLabel, this._nameLabel2,
-      this._barBg, this._barFill, this._light,
+      this._barBg, this._barFill, this._light, this._interactionZone,
     ]);
     this.setSize(PW, PH);
   }

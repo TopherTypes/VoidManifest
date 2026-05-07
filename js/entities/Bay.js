@@ -52,7 +52,12 @@ export class Bay extends Phaser.GameObjects.Container {
       fontSize: '9px', fontFamily: 'Courier New', color: '#446688',
     }).setOrigin(1, 0);
 
-    const items = [this._bg, this._idLabel, this._subLabel, this._countText];
+    // Interaction zone indicator (left face)
+    this._interactionZone = this.scene.add.rectangle(-TILE_SIZE, 0, TILE_SIZE - 2, PH - 2, 0x775533)
+      .setStrokeStyle(1, 0xddaa66)
+      .setAlpha(0.15);
+
+    const items = [this._bg, this._idLabel, this._subLabel, this._countText, this._interactionZone];
     if (this._flagLabel) items.push(this._flagLabel);
     this.add(items);
     this.setSize(PW, PH);

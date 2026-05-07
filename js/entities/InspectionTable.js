@@ -43,7 +43,12 @@ export class InspectionTable extends Phaser.GameObjects.Container {
     this._light = this.scene.add.circle(PW/2 - 12, -PH/2 + 12, 5, 0x112233)
       .setStrokeStyle(1, 0x224455);
 
-    this.add([this._bg, this._surface, this._label, this._label2, this._light]);
+    // Interaction zone indicator (left face)
+    this._interactionZone = this.scene.add.rectangle(-TILE_SIZE, 0, TILE_SIZE - 2, PH - 4, 0x225577)
+      .setStrokeStyle(1, 0x4499dd)
+      .setAlpha(0.15);
+
+    this.add([this._bg, this._surface, this._label, this._label2, this._light, this._interactionZone]);
     this.setSize(PW, PH);
   }
 

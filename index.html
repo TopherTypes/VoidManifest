@@ -14,14 +14,17 @@
       align-items: center;
       justify-content: center;
       height: 100vh;
+      width: 100vw;
       overflow: hidden;
       font-family: 'Courier New', Courier, monospace;
+      margin: 0;
+      padding: 0;
     }
 
     #game-wrapper {
       position: relative;
-      width: 1056px;
-      height: 768px;
+      width: 100vw;
+      height: 100vh;
     }
 
     canvas { display: block; }
@@ -139,8 +142,14 @@
       color: #228855;
       font-style: italic;
       letter-spacing: 0.5px;
-      padding: 5px 0 2px;
+      padding: 5px 0 8px;
       line-height: 1.4;
+    }
+
+    #weight-scan-row {
+      margin-top: 8px;
+      padding-top: 8px !important;
+      border-top: 1px solid #0e1a24 !important;
     }
 
     /* ── RIGHT: handbook ── */
@@ -339,17 +348,17 @@
       transition: background 0.15s, color 0.15s;
     }
 
-    #btn-route {
+    #btn-approve {
       color: #44cc88;
       border-color: #2a6644;
     }
-    #btn-route:hover { background: #1a3322; }
+    #btn-approve:hover { background: #1a3322; }
 
-    #btn-incinerate {
+    #btn-deny {
       color: #cc4444;
       border-color: #662222;
     }
-    #btn-incinerate:hover { background: #331111; }
+    #btn-deny:hover { background: #331111; }
 
     /* ── Notification toast ── */
     #toast {
@@ -410,15 +419,18 @@
               <span class="prop-value" id="prop-flag">—</span>
             </div>
           </div>
+          <div style="margin-top: 12px; margin-bottom: 8px;">
+            <canvas id="declared-flag-canvas" width="96" height="56" style="border: 1px solid #1a2e40; display: block;"></canvas>
+          </div>
 
           <div class="section-title">Scan Readouts</div>
           <div class="scan-section">
+            <canvas id="xray-canvas" width="338" height="190"></canvas>
+            <div class="xray-signature" id="prop-scan-output">AWAITING SCAN…</div>
             <div class="property-row" id="weight-scan-row" style="display:none">
               <span class="prop-key">MEASURED WEIGHT</span>
               <span class="prop-value" id="prop-weight-scan">—</span>
             </div>
-            <canvas id="xray-canvas" width="338" height="190"></canvas>
-            <div class="xray-signature" id="prop-scan-output">AWAITING SCAN…</div>
           </div>
 
         </div><!-- /.panel-col-left -->
@@ -441,8 +453,8 @@
       </div><!-- /.panel-body -->
 
       <div class="panel-footer">
-        <button id="btn-route" class="btn">Route to Destination</button>
-        <button id="btn-incinerate" class="btn">Incinerate</button>
+        <button id="btn-approve" class="btn">Approve Parcel</button>
+        <button id="btn-deny" class="btn">Deny Parcel</button>
       </div>
     </div><!-- /#inspection-panel -->
 
