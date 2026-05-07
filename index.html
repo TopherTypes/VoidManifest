@@ -32,8 +32,8 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 540px;
-      max-height: 700px;
+      width: 840px;
+      max-height: 680px;
       background: #0b1219;
       border: 1px solid #2a4060;
       box-shadow: 0 0 40px rgba(0,80,160,0.3), inset 0 0 60px rgba(0,0,0,0.5);
@@ -54,6 +54,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-shrink: 0;
     }
 
     .panel-title {
@@ -70,102 +71,266 @@
       letter-spacing: 1px;
     }
 
+    /* ── Two-column body ── */
     .panel-body {
-      padding: 16px 18px;
-      overflow-y: auto;
+      display: flex;
+      flex-direction: row;
       flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* LEFT: manifest + scan readouts */
+    .panel-col-left {
+      width: 372px;
+      flex-shrink: 0;
+      padding: 14px 16px 14px 18px;
+      border-right: 1px solid #1e3650;
+      overflow-y: auto;
     }
 
     .section-title {
-      font-size: 11px;
+      font-size: 10px;
       letter-spacing: 3px;
       color: #446688;
       text-transform: uppercase;
       border-bottom: 1px solid #1a2e40;
-      padding-bottom: 6px;
-      margin-bottom: 10px;
-      margin-top: 4px;
+      padding-bottom: 5px;
+      margin-bottom: 8px;
+      margin-top: 2px;
     }
 
-    .properties-section { margin-bottom: 18px; }
+    .properties-section { margin-bottom: 16px; }
 
     .property-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 6px 0;
+      padding: 5px 0;
       border-bottom: 1px solid #0e1a24;
     }
 
     .prop-key {
       color: #556677;
-      font-size: 12px;
+      font-size: 11px;
       letter-spacing: 1px;
     }
 
     .prop-value {
       color: #ccddee;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: bold;
     }
 
-    /* ── X-ray scan section ── */
-    .scan-section { margin-bottom: 18px; }
+    /* ── Scan section ── */
+    .scan-section { margin-bottom: 6px; }
 
-    .scan-output {
-      background: #060e08;
+    #xray-canvas {
+      display: block;
+      width: 338px;
+      height: 190px;
       border: 1px solid #1a4a22;
-      padding: 12px 14px;
-      font-size: 14px;
-      color: #44cc88;
-      line-height: 1.6;
-      letter-spacing: 0.5px;
-      font-style: italic;
+      margin: 8px 0 0;
+      image-rendering: pixelated;
     }
 
-    /* ── Planet registry section ── */
-    .registry-section { margin-bottom: 8px; }
+    .xray-signature {
+      font-size: 10px;
+      color: #228855;
+      font-style: italic;
+      letter-spacing: 0.5px;
+      padding: 5px 0 2px;
+      line-height: 1.4;
+    }
 
-    .registry-row {
+    /* ── RIGHT: handbook ── */
+    .panel-col-right {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .handbook-header {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: #335566;
+      text-transform: uppercase;
+      padding: 10px 16px 8px;
+      border-bottom: 1px solid #1a2e40;
+      flex-shrink: 0;
+    }
+
+    .tab-bar {
+      display: flex;
+      border-bottom: 1px solid #1a2e40;
+      flex-shrink: 0;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 8px 4px;
+      background: transparent;
+      border: none;
+      border-right: 1px solid #1a2e40;
+      color: #445566;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .tab-btn:last-child { border-right: none; }
+
+    .tab-btn.active {
+      color: #4488bb;
+      background: #0d1a26;
+    }
+
+    .tab-btn:hover:not(.active) {
+      background: #0a1520;
+      color: #6699aa;
+    }
+
+    .tab-panels {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+    }
+
+    .tab-panel {
+      display: none;
+      padding: 12px 16px;
+    }
+
+    .tab-panel.active { display: block; }
+
+    /* Weight tab */
+    .weight-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+    }
+
+    .weight-table th {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: #446688;
+      text-transform: uppercase;
+      border-bottom: 1px solid #1a2e40;
+      padding: 4px 6px;
+      text-align: left;
+    }
+
+    .weight-table td {
+      font-size: 11px;
+      color: #8aabcc;
+      padding: 7px 6px;
+      border-bottom: 1px solid #0e1a24;
+      vertical-align: top;
+      line-height: 1.4;
+    }
+
+    .weight-class-chip {
+      display: inline-block;
+      color: #ccddee;
+      font-weight: bold;
+      font-size: 11px;
+      letter-spacing: 1px;
+    }
+
+    .hb-note {
+      margin-top: 10px;
+      font-size: 9px;
+      color: #334455;
+      letter-spacing: 0.5px;
+      line-height: 1.6;
+      border-top: 1px solid #0e1a24;
+      padding-top: 8px;
+    }
+
+    /* Planets tab */
+    .hb-planet-row {
       display: flex;
       align-items: center;
-      gap: 14px;
-      padding: 6px 0;
+      gap: 10px;
+      padding: 8px 0;
       border-bottom: 1px solid #0e1a24;
     }
 
-    .reg-flag {
-      font-size: 18px;
-      min-width: 24px;
-      text-align: center;
+    .hb-flag-slot canvas {
+      display: block;
+      border-radius: 1px;
     }
 
-    .reg-code {
-      font-size: 14px;
-      font-weight: bold;
+    .hb-planet-info { flex: 1; }
+
+    .hb-planet-id {
       color: #ccddee;
-      min-width: 100px;
+      font-size: 12px;
+      font-weight: bold;
       letter-spacing: 1px;
     }
 
-    .reg-name {
-      font-size: 13px;
+    .hb-planet-name {
       color: #557799;
+      font-size: 10px;
       letter-spacing: 1px;
+      margin-top: 2px;
     }
 
+    .hb-planet-note {
+      color: #334455;
+      font-size: 9px;
+      letter-spacing: 0.3px;
+      margin-top: 3px;
+      font-style: italic;
+    }
+
+    /* Contents tab */
+    .content-entry {
+      padding: 8px 0;
+      border-bottom: 1px solid #0e1a24;
+    }
+
+    .content-type-label {
+      color: #ccddee;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      margin-bottom: 3px;
+    }
+
+    .content-desc {
+      color: #557799;
+      font-size: 10px;
+      letter-spacing: 0.3px;
+      line-height: 1.5;
+    }
+
+    .content-routing {
+      color: #445533;
+      font-size: 9px;
+      letter-spacing: 0.3px;
+      margin-top: 3px;
+      font-style: italic;
+    }
+
+    /* ── Footer ── */
     .panel-footer {
       border-top: 1px solid #1e3650;
-      padding: 14px 18px;
+      padding: 12px 18px;
       display: flex;
       gap: 12px;
+      flex-shrink: 0;
     }
 
     .btn {
       flex: 1;
-      padding: 11px;
+      padding: 10px;
       font-family: 'Courier New', Courier, monospace;
-      font-size: 14px;
+      font-size: 13px;
       letter-spacing: 2px;
       text-transform: uppercase;
       cursor: pointer;
@@ -214,53 +379,73 @@
 </head>
 <body>
   <div id="game-wrapper">
+
     <div id="inspection-panel">
       <div class="panel-header">
         <span class="panel-title">// Cargo Inspection Terminal</span>
         <span id="pod-id-label">POD-000</span>
       </div>
+
       <div class="panel-body">
 
-        <div class="properties-section">
-          <div class="section-title">Manifest Data</div>
-          <div class="property-row">
-            <span class="prop-key">DESTINATION</span>
-            <span class="prop-value" id="prop-dest">—</span>
-          </div>
-          <div class="property-row">
-            <span class="prop-key">DECLARED FLAG</span>
-            <span class="prop-value" id="prop-flag">—</span>
-          </div>
-          <div class="property-row">
-            <span class="prop-key">CONTENT TYPE</span>
-            <span class="prop-value" id="prop-content">—</span>
-          </div>
-          <div class="property-row">
-            <span class="prop-key">WEIGHT CLASS</span>
-            <span class="prop-value" id="prop-weight">—</span>
-          </div>
-          <div class="property-row" id="weight-scan-row" style="display:none">
-            <span class="prop-key">WEIGHT SCAN</span>
-            <span class="prop-value" id="prop-weight-scan">—</span>
-          </div>
-        </div>
+        <!-- LEFT: declared manifest + scan readouts -->
+        <div class="panel-col-left">
 
-        <div class="scan-section">
-          <div class="section-title">X-Ray Content Analysis</div>
-          <div class="scan-output" id="prop-scan-output">AWAITING SCAN…</div>
-        </div>
+          <div class="section-title">Declared Manifest</div>
+          <div class="properties-section">
+            <div class="property-row">
+              <span class="prop-key">WEIGHT CLASS</span>
+              <span class="prop-value" id="prop-weight">—</span>
+            </div>
+            <div class="property-row">
+              <span class="prop-key">CONTENT TYPE</span>
+              <span class="prop-value" id="prop-content">—</span>
+            </div>
+            <div class="property-row">
+              <span class="prop-key">DESTINATION</span>
+              <span class="prop-value" id="prop-dest">—</span>
+            </div>
+            <div class="property-row">
+              <span class="prop-key">DECLARED FLAG</span>
+              <span class="prop-value" id="prop-flag">—</span>
+            </div>
+          </div>
 
-        <div class="registry-section">
-          <div class="section-title">Authorized Planet Registry</div>
-          <div id="planet-registry"></div>
-        </div>
+          <div class="section-title">Scan Readouts</div>
+          <div class="scan-section">
+            <div class="property-row" id="weight-scan-row" style="display:none">
+              <span class="prop-key">MEASURED WEIGHT</span>
+              <span class="prop-value" id="prop-weight-scan">—</span>
+            </div>
+            <canvas id="xray-canvas" width="338" height="190"></canvas>
+            <div class="xray-signature" id="prop-scan-output">AWAITING SCAN…</div>
+          </div>
 
-      </div>
+        </div><!-- /.panel-col-left -->
+
+        <!-- RIGHT: inspection handbook -->
+        <div class="panel-col-right">
+          <div class="handbook-header">Inspection Handbook</div>
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="weight">WEIGHT</button>
+            <button class="tab-btn" data-tab="planets">PLANETS</button>
+            <button class="tab-btn" data-tab="contents">CONTENTS</button>
+          </div>
+          <div class="tab-panels">
+            <div class="tab-panel active" id="tab-weight"><!-- populated by JS --></div>
+            <div class="tab-panel"        id="tab-planets"><!-- populated by JS --></div>
+            <div class="tab-panel"        id="tab-contents"><!-- populated by JS --></div>
+          </div>
+        </div><!-- /.panel-col-right -->
+
+      </div><!-- /.panel-body -->
+
       <div class="panel-footer">
         <button id="btn-route" class="btn">Route to Destination</button>
         <button id="btn-incinerate" class="btn">Incinerate</button>
       </div>
-    </div>
+    </div><!-- /#inspection-panel -->
+
     <div id="toast"></div>
   </div>
 
