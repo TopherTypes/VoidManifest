@@ -76,6 +76,8 @@ export class Bay extends Phaser.GameObjects.Container {
 
   // Place a parcel in the bay (staged for submission)
   placePod(pod) {
+    if (this.count >= 6) return false;
+
     this.parcels.push(pod);
     this.count++;
     this._countText.setText(String(this.count));
@@ -85,6 +87,8 @@ export class Bay extends Phaser.GameObjects.Container {
     const origColor = this.bayData.borderColor;
     this._bg.setStrokeStyle(2, 0xffffff);
     this.scene.time.delayedCall(200, () => this._bg.setStrokeStyle(1.5, origColor));
+
+    return true;
   }
 
   // Submit all parcels in the bay and return them

@@ -252,9 +252,12 @@ export class Day1Scene extends Phaser.Scene {
         for (const bay of this._bays) {
           if (bay.playerCanDeposit(player.x, player.y)) {
             const needsDecision = !carried.decision;
-            hint = needsDecision
-              ? `[E] Deposit at ${bay.bayData.id} — must approve/deny first!`
-              : `[E] Deposit at ${bay.bayData.id}`;
+            const isFull = bay.count >= 6;
+            hint = isFull
+              ? `Bay full (6/6) — submit to continue`
+              : needsDecision
+                ? `[E] Deposit at ${bay.bayData.id} — must approve/deny first!`
+                : `[E] Deposit at ${bay.bayData.id}`;
             break;
           }
         }
@@ -388,8 +391,12 @@ export class Day1Scene extends Phaser.Scene {
     player.putDown();
     pod.setPosition(bay.x, bay.y);
 
-    bay.placePod(pod);
-    this._showToast(`Placed in bay. Collect more to submit batch, or [E] to submit now.`, 'neutral', 2200);
+    const placed = bay.placePod(pod);
+    if (!placed) {
+      this._showToast(`Bay full — max 6 packages. Submit batch to continue.`, 'negative', 2200);
+    } else {
+      this._showToast(`Placed in bay. Collect more to submit batch, or [E] to submit now.`, 'neutral', 2200);
+    }
   }
 
   _submitBayParcels(player, bay) {
@@ -903,12 +910,22 @@ export class Day1Scene extends Phaser.Scene {
     const violations = evaluatePod(pod.podData);
     pod.setInspectedResult(violations);
 
+    // Calculate actual weight from pod ID and weight class bounds
+    const bounds  = WEIGHT_BOUNDS[pod.podData.weightClass];
+    const frac    = ((parseInt(pod.podData.id.replace('POD-', ''), 10) * 2654435761) >>> 0) / 4294967296;
+    const measKg  = bounds
+      ? Math.floor(bounds.min + frac * (bounds.max - bounds.min))
+      : '—';
+
     // Declared manifest — shown as declared, no violation colouring
     document.getElementById('pod-id-label').textContent = pod.podData.id;
     document.getElementById('prop-weight').textContent  = pod.podData.weightClass;
     document.getElementById('prop-content').textContent = pod.podData.contentCategory;
     document.getElementById('prop-dest').textContent    = pod.podData.destinationCode;
     document.getElementById('prop-flag').textContent    = pod.podData.destinationFlag || '—';
+
+    // Display actual weight in scan readouts for comparison against declared class
+    document.getElementById('prop-weight-scan').textContent = `${measKg} kg`;
 
     // Draw declared flag colour preview
     const flagCanvas = document.getElementById('declared-flag-canvas');
@@ -931,21 +948,6 @@ export class Day1Scene extends Phaser.Scene {
 
     for (const id of ['prop-weight', 'prop-content', 'prop-dest', 'prop-flag']) {
       document.getElementById(id).className = 'prop-value';
-    }
-
-    // Weight scan readout — show measured kg if pod passed through scanner
-    const weightScanRow = document.getElementById('weight-scan-row');
-    if (pod.weightScanned) {
-      const bounds  = WEIGHT_BOUNDS[pod.podData.weightClass];
-      const frac    = ((parseInt(pod.podData.id.replace('POD-', ''), 10) * 2654435761) >>> 0) / 4294967296;
-      const measKg  = bounds
-        ? Math.floor(bounds.min + frac * (bounds.max - bounds.min))
-        : '—';
-      document.getElementById('prop-weight-scan').textContent =
-        `${measKg} kg (${pod.podData.weightClass})`;
-      weightScanRow.style.display = '';
-    } else {
-      weightScanRow.style.display = 'none';
     }
 
     // X-ray canvas — drawn from actual content (not declared)
