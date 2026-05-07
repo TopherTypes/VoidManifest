@@ -1,10 +1,15 @@
 // ── Planet definitions ────────────────────────────────────────────────────────
 export const PLANETS = [
-  { id: 'VERATH-IV', label: 'Verath IV',    flag: '◈', flagColor: '#4488dd', color: 0x0e1a30, borderColor: 0x3366cc },
-  { id: 'OSKAR-7',   label: 'Oskar-7',      flag: '◆', flagColor: '#9955cc', color: 0x1a0e2a, borderColor: 0x8844bb },
-  { id: 'MIRA-3',    label: 'Mira-3',       flag: '◉', flagColor: '#22bbaa', color: 0x0a1e1e, borderColor: 0x229988 },
-  { id: 'DRAKON',    label: 'Drakon Prime',  flag: '▲', flagColor: '#dd8833', color: 0x221408, borderColor: 0xaa5522 },
+  { id: 'VERATH-IV', label: 'Verath IV',    flag: '⬠', flagColor: '#4488dd', color: 0x0e1a30, borderColor: 0x3366cc },
+  { id: 'OSKAR-7',   label: 'Oskar-7',      flag: '⬟', flagColor: '#9955cc', color: 0x1a0e2a, borderColor: 0x8844bb },
+  { id: 'MIRA-3',    label: 'Mira-3',       flag: '●', flagColor: '#22bbaa', color: 0x0a1e1e, borderColor: 0x229988 },
+  { id: 'DRAKON',    label: 'Drakon Prime',  flag: '★', flagColor: '#dd8833', color: 0x221408, borderColor: 0xaa5522 },
   { id: 'INCIN',     label: 'INCINERATION', flag: null, flagColor: null,      color: 0x200808, borderColor: 0x882222 },
+];
+
+// ── Incorrect flag options (for falsely-marked parcels) ────────────────────────
+export const INCORRECT_FLAGS = [
+  '◆', '◇', '▢', '▪', '■', '□', '◈', '◊', '◌', '○',
 ];
 
 // Planet IDs valid for routing (excludes INCIN)

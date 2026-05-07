@@ -1,4 +1,4 @@
-import { WORLD_MAP, TILE, TILE_SIZE, PLANETS, SCAN_SIGNATURES, WEIGHT_BOUNDS } from '../data/rules.js';
+import { TILE, TILE_SIZE, PLANETS, SCAN_SIGNATURES, WEIGHT_BOUNDS, WORLD_MAP } from '../data/rules.js';
 import { generatePodBatch }  from '../data/pods.js';
 import { Economy }           from '../systems/Economy.js';
 import { Progression }       from '../systems/Progression.js';
@@ -43,6 +43,11 @@ const CONTENT_RULES = {
 export class Day1Scene extends Phaser.Scene {
   constructor() { super({ key: 'Day1Scene' }); }
 
+  onWindowResize(dims) {
+    this.scale.resize(dims.width, dims.height);
+    this._updateCameraZoom();
+  }
+
   // ── create ──────────────────────────────────────────────────────────────────
   create() {
     this._economy     = new Economy(50);
@@ -66,7 +71,27 @@ export class Day1Scene extends Phaser.Scene {
     this._wireProgression();
     this._wireInspectionPanel();
 
-    this._showToast('Day 1 — Inspect each pod and route it to the correct planet', 'neutral', 4000);
+    // Set up camera to follow player with smooth damping
+    this.cameras.main.startFollow(this._player, true, 0.1, 0.1);
+    this.cameras.main.setBounds(0, 0, COLS * TILE_SIZE, ROWS * TILE_SIZE);
+
+    this._updateCameraZoom();
+
+    this._showToast('Day 1 — Inspect each pod and approve/deny based on manifest', 'neutral', 4000);
+  }
+
+  _updateCameraZoom() {
+    const worldWidth = COLS * TILE_SIZE;
+    const worldHeight = ROWS * TILE_SIZE;
+    const screenWidth = this.cameras.main.width;
+    const screenHeight = this.cameras.main.height;
+
+    // Calculate zoom to fit appropriate number of tiles
+    const zoomX = screenWidth / worldWidth;
+    const zoomY = screenHeight / worldHeight;
+    const zoom = Math.min(zoomX, zoomY);
+
+    this.cameras.main.setZoom(zoom);
   }
 
   // ── update ───────────────────────────────────────────────────────────────────
@@ -176,25 +201,27 @@ export class Day1Scene extends Phaser.Scene {
 
   // ── HUD ──────────────────────────────────────────────────────────────────────
   _createHUD() {
+    const cam = this.cameras.main;
+
     this._hudCreditsText = this.add.text(12, 8, '', {
       fontSize: '14px', fontFamily: 'Courier New', color: '#66aaff',
-    }).setDepth(20).setScrollFactor(0);
+    }).setDepth(20).setScrollFactor(0).setFixedSize(200, 0);
 
-    this._hudProgressText = this.add.text(1044, 8, '', {
+    this._hudProgressText = this.add.text(cam.width - 12, 8, '', {
       fontSize: '14px', fontFamily: 'Courier New', color: '#668888',
-    }).setDepth(20).setScrollFactor(0).setOrigin(1, 0);
+    }).setDepth(20).setScrollFactor(0).setOrigin(1, 0).setFixedSize(200, 0);
 
-    this._hudDayText = this.add.text(528, 8, 'DAY 1', {
+    this._hudDayText = this.add.text(cam.width / 2, 8, 'DAY 1', {
       fontSize: '14px', fontFamily: 'Courier New', color: '#334455',
       letterSpacing: 3,
     }).setDepth(20).setScrollFactor(0).setOrigin(0.5, 0);
 
-    this._promptText = this.add.text(528, 748, '', {
+    this._promptText = this.add.text(cam.width / 2, cam.height - 20, '', {
       fontSize: '14px', fontFamily: 'Courier New', color: '#446688',
       letterSpacing: 1,
-    }).setDepth(20).setScrollFactor(0).setOrigin(0.5, 1);
+    }).setDepth(20).setScrollFactor(0).setOrigin(0.5, 1).setFixedSize(600, 0);
 
-    this._unlockBanner = this.add.text(528, 40, '', {
+    this._unlockBanner = this.add.text(cam.width / 2, 40, '', {
       fontSize: '14px', fontFamily: 'Courier New', color: '#44cc88',
       backgroundColor: '#0d1f0d', padding: { x: 10, y: 6 }, letterSpacing: 1,
     }).setDepth(21).setScrollFactor(0).setOrigin(0.5, 0).setAlpha(0);
@@ -226,7 +253,7 @@ export class Day1Scene extends Phaser.Scene {
           if (bay.playerCanDeposit(player.x, player.y)) {
             const needsDecision = !carried.decision;
             hint = needsDecision
-              ? `[E] Deposit at ${bay.bayData.id} — inspect first!`
+              ? `[E] Deposit at ${bay.bayData.id} — must approve/deny first!`
               : `[E] Deposit at ${bay.bayData.id}`;
             break;
           }
@@ -238,9 +265,19 @@ export class Day1Scene extends Phaser.Scene {
       if (this._table.hasPod() && player.isNear(tip.x, tip.y)) {
         hint = '[E] Pick up pod from table';
       } else {
-        const near = this._nearestFloorPod(player.x, player.y);
-        if (near) hint = `[E] Pick up ${near.podData.id}`;
-        else      hint = 'WASD / Arrow keys to move';
+        // Check for bay with parcels to submit
+        for (const bay of this._bays) {
+          if (bay.playerCanDeposit(player.x, player.y) && bay.parcels.length > 0) {
+            hint = `[E] Submit ${bay.parcels.length} parcel${bay.parcels.length !== 1 ? 's' : ''} from ${bay.bayData.id}`;
+            break;
+          }
+        }
+
+        if (!hint) {
+          const near = this._nearestFloorPod(player.x, player.y);
+          if (near) hint = `[E] Pick up ${near.podData.id}`;
+          else      hint = 'WASD / Arrow keys to move';
+        }
       }
     }
 
@@ -327,7 +364,15 @@ export class Day1Scene extends Phaser.Scene {
       return;
     }
 
-    // 2. Pick up floor pod
+    // 2. Submit parcels at bay
+    for (const bay of this._bays) {
+      if (bay.playerCanDeposit(player.x, player.y) && bay.parcels.length > 0) {
+        this._submitBayParcels(player, bay);
+        return;
+      }
+    }
+
+    // 3. Pick up floor pod
     const near = this._nearestFloorPod(player.x, player.y);
     if (near) {
       player.pickUp(near);
@@ -343,31 +388,49 @@ export class Day1Scene extends Phaser.Scene {
     player.putDown();
     pod.setPosition(bay.x, bay.y);
 
-    const result = this._economy.scoreDeposit(
-      { ...pod.podData, violations: pod.violations },
-      bay.bayData.id
-    );
+    bay.placePod(pod);
+    this._showToast(`Placed in bay. Collect more to submit batch, or [E] to submit now.`, 'neutral', 2200);
+  }
 
-    bay.deposit(pod);
-    this._processedCount++;
+  _submitBayParcels(player, bay) {
+    const parcels = bay.submitParcels();
+    if (parcels.length === 0) return;
+
+    let correct = 0, incorrect = 0;
+    const reasons = [];
+
+    for (const pod of parcels) {
+      const result = this._economy.scoreDeposit(
+        { ...pod.podData, violations: pod.violations },
+        bay.bayData.id
+      );
+      if (result.correct) {
+        correct++;
+      } else {
+        incorrect++;
+      }
+      reasons.push(result.reason);
+      this._processedCount++;
+    }
+
     this._checkProgression();
     this._checkDayEnd();
 
-    const cls = result.correct ? 'positive' : 'negative';
-    this._showToast(result.reason, cls, 2200);
+    const summary = `SUBMISSION REPORT: ${correct} approved, ${incorrect} denied | ${reasons.join(' | ')}`;
+    this._showToast(summary, 'neutral', 4000);
   }
 
   // ── Inspection panel (HTML overlay) ─────────────────────────────────────────
   _wireInspectionPanel() {
-    const panel    = document.getElementById('inspection-panel');
-    const btnRoute = document.getElementById('btn-route');
-    const btnIncin = document.getElementById('btn-incinerate');
+    const panel      = document.getElementById('inspection-panel');
+    const btnApprove = document.getElementById('btn-approve');
+    const btnDeny    = document.getElementById('btn-deny');
 
     this._panel             = panel;
     this._currentInspectPod = null;
 
-    btnRoute.addEventListener('click', () => this._onDecision('route'));
-    btnIncin.addEventListener('click', () => this._onDecision('incinerate'));
+    btnApprove.addEventListener('click', () => this._onDecision('approve'));
+    btnDeny.addEventListener('click', () => this._onDecision('deny'));
 
     // Tab switching
     panel.querySelectorAll('.tab-btn').forEach(btn => {
@@ -847,6 +910,25 @@ export class Day1Scene extends Phaser.Scene {
     document.getElementById('prop-dest').textContent    = pod.podData.destinationCode;
     document.getElementById('prop-flag').textContent    = pod.podData.destinationFlag || '—';
 
+    // Draw declared flag colour preview
+    const flagCanvas = document.getElementById('declared-flag-canvas');
+    const declaredPlanet = PLANETS.find(p => p.flag === pod.podData.destinationFlag);
+    if (declaredPlanet && declaredPlanet.flag) {
+      this._drawPlanetFlag(flagCanvas, declaredPlanet);
+    } else {
+      const ctx = flagCanvas.getContext('2d');
+      ctx.fillStyle = '#0b0c0d';
+      ctx.fillRect(0, 0, flagCanvas.width, flagCanvas.height);
+      ctx.fillStyle = '#334455';
+      ctx.font = '10px Courier New';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('UNKNOWN FLAG', flagCanvas.width / 2, flagCanvas.height / 2);
+      ctx.strokeStyle = '#1a2e40';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(0.5, 0.5, flagCanvas.width - 1, flagCanvas.height - 1);
+    }
+
     for (const id of ['prop-weight', 'prop-content', 'prop-dest', 'prop-flag']) {
       document.getElementById(id).className = 'prop-value';
     }
@@ -874,8 +956,8 @@ export class Day1Scene extends Phaser.Scene {
     document.getElementById('prop-scan-output').textContent =
       SCAN_SIGNATURES[pod.podData.actualContent] ?? 'SCAN ERROR — NO SIGNATURE RETURNED';
 
-    // Route button label
-    document.getElementById('btn-route').textContent = `Route to ${pod.podData.destinationCode}`;
+    // Approve button label shows destination
+    document.getElementById('btn-approve').textContent = `Approve for ${pod.podData.destinationCode}`;
 
     // Always open on Weight tab
     this._panel.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -904,9 +986,9 @@ export class Day1Scene extends Phaser.Scene {
       this._player.pickUp(pod);
     }
 
-    const label = decision === 'route'
-      ? `Route to ${pod.podData.destinationCode} — carry it to the matching planet bay`
-      : 'Marked for incineration — carry to INCINERATION bay';
+    const label = decision === 'approve'
+      ? `Approved for ${pod.podData.destinationCode} — carry it to the matching planet bay`
+      : 'Denied — carry to DENIAL bay (incineration)';
     this._showToast(label, 'neutral', 3000);
   }
 

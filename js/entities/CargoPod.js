@@ -43,7 +43,7 @@ export class CargoPod extends Phaser.GameObjects.Container {
 
   markDecision(decision) {
     this.decision = decision;
-    if (decision === 'route') {
+    if (decision === 'approve') {
       this._box.setFillStyle(0x1a3a1a).setStrokeStyle(1.5, 0x44cc77);
       this._destText.setColor('#66ffaa');
     } else {
